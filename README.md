@@ -31,8 +31,17 @@ Aim is:
 
 ## Step 2
 - Creare un classificatore che classifichi le immagini con label pertinenti. (multi-class labels)
-- The Classificator C : learns from piece.spectralAnalysis with piece labeled each bin and **classifies piece.Emotions based on spectral analysis**
--    
+- The Classifier C : learns from piece.spectralAnalysis with piece labeled each bin and **classifies piece.Emotions based on piece's spectral analysis**
+- The proposed one learns from 'noise' which is an internal representation of the values of the generator
+-   if we have the spectral analaysis values of the music bin, we can attribute an emotion to a spectral analysis features set [and depending from the others]
+-   so the classifier has to predict an emotion, based on a particolar SA
+-     if we bring with us every BIN.SA.FeatureHistogram() knowledge we can start to make comparisons (important in Music domain) during time to compute more accurated chioces based on pattern recognition between SA mapped into emotions. (RNN / Transfomer)
+
+  Now that we have an run-time emotion predicted with another method, we can build a CGAN/DCGAN that (if probabilistic computation tractable)
+-     wants to learn emotion from artImages (see Dataset ArtEmis: artImage, emotion)
+-     wants to generate artImages conditioned on emotion predicted by the RNN/T 
+
+
 
 ## Step 3 
 - Aggiungere tag sul dinamismo, legato al ritmo, cosa che nelle immagini non si trova
