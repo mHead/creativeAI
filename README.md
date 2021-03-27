@@ -30,6 +30,11 @@ Aim is:
 - ArtEmis: Affective Languege for Visual Art https://www.artemisdataset.org
 
 ## Step 2
+transfer style knowledge
+
+
+
+
 - Creare un classificatore che classifichi le immagini con label pertinenti. (multi-class labels)
 - The Classifier C : learns from piece.spectralAnalysis with piece labeled each bin and **classifies piece.Emotions based on piece's spectral analysis**
 - The proposed one learns from 'noise' which is an internal representation of the values of the generator
