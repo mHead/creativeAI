@@ -4,7 +4,7 @@ Build up a complex DNN to generate images from music streaming, describing the m
 
 Music and images do not belong to the same domain. 
 - Music domain : D(music) = M
-- Image domain : D(image = I
+- Image domain : D(image) = I
 
 Offline work:
 Build up a Map<Emotion, List<RelatedColors>> so that we give just one color to the song (the predominant) , and we provide related colors for it 
