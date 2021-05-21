@@ -1,0 +1,36 @@
+import os
+
+wikiart_img_dir = '/Volumes/SamsungSSD/creativeAI/imageSide/dataset_stringRevisioned/wikiart'
+pathiter = (os.path.join(root, filename) for root, _, filenames in os.walk(wikiart_img_dir) for filename in filenames)
+for path in pathiter:
+	if path.__contains__('Impressionism/'):
+		newname = path.replace('joaqua­n-sorolla', 'joaquan-sorolla')
+		newname = newname.replace('â', 'a')
+		newname = newname.replace('å', 'a')
+		newname = newname.replace('ā', 'a')
+		newname = newname.replace('ë', 'e')
+		newname = newname.replace('ê', 'e')
+		newname = newname.replace('ė', 'e')
+		newname = newname.replace('ē', 'e')
+		newname = newname.replace('ï', 'i')
+		newname = newname.replace('î', 'i')
+		newname = newname.replace('į', 'i')
+		newname = newname.replace('ī', 'i')
+		newname = newname.replace('ö', 'o')
+		newname = newname.replace('ô', 'o')
+		newname = newname.replace('ø', 'o')
+		newname = newname.replace('õ', 'o')
+		newname = newname.replace('ō', 'o')
+		newname = newname.replace('ü', 'u')
+		newname = newname.replace('û', 'u')
+		newname = newname.replace('ū', 'u')
+		newname = newname.replace('¨', '')
+		newname = newname.replace('©', '')
+		newname = newname.replace('³', '')
+		newname = newname.replace('¼', '')
+		newname = newname.replace('¶', '')
+		newname = newname.replace('a\xad', '')
+		print("OLD:", path)
+		print("NEW:", newname)
+		if newname != path:
+		  os.rename(path, newname)
