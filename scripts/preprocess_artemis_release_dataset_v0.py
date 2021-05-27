@@ -64,12 +64,12 @@ def sanitize_csv(dataFrame):
 	flag = 0
 	for row in dataFrame.itertuples():
 		newname = sanitize_string(row[2])
-		if(newname != row[2])
+		if(newname != row[2]):
 			print("OLD: {}".format(row[2]))
 			print("NEW: {}".format(newname))
 			nSanitizes += 1
 
-		data.append([style, sanitized_name, dist.tolist()])
+		#data.append([style, sanitized_name, dist.tolist()])
 
 
 
