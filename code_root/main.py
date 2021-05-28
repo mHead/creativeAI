@@ -1,25 +1,49 @@
-import sys, getopt, os
+import sys, os
+
 argv = sys.argv[1:]
-
-options, arguments = getopt.getopt(argv, "v:g:r:", ["verbose=", "generatecsv=", "repo_root"])
-try:
-    pass
-
-except getopt.GetoptError:
-    print(f'Invalid usage: *.py [-v <verbose>, -g <generatecsv> <save_name>] -r <repo_root>')
-    sys.exit(2)
+print(argv)
 
 repo_root = r''
+verbose = False
+generate_csv = False
+pick_repo = False
 
-for opt, arg in options:
-    if opt in ("-v", "verbose"):
-        verbose = True
-    elif opt in("-g", "generatecsv"):
-        save_music_emo_csv_path = arg
-        generate_csv = True
-    elif opt in("-r", "repo_root"):
+save_csv_path = r''
+
+for arg in argv:
+    if pick_repo:
         repo_root = arg
+    if generate_csv:
+        save_csv_path = arg
 
+    if arg.__eq__("--verbose"):
+        verbose = True
+    if arg.__eq__("--repo_root"):
+        pick_repo = True
+    if arg.__eq__("--generate_csv"):
+        generate_csv = True
+
+# import getopt
+# try:
+#    options, arguments = getopt.getopt(argv, "v:g:r:", ["verbose=", "generatecsv=", "repo_root="])
+
+
+# except getopt.GetoptError:
+#    print(f'Invalid usage: *.py [-v <verbose>, -g <generatecsv> <save_name>] -r <repo_root>')
+#    sys.exit(2)
+
+
+# for opt, arg in options:
+#    if opt in ("-v", "verbose"):
+#        verbose = True
+#    elif opt in ("-g", "generatecsv"):
+#        save_music_emo_csv_path = arg
+#        generate_csv = True
+#    elif opt in ("-r", "repo_root"):
+#        repo_root = arg
+
+print(repo_root)
+assert len(repo_root) != 0
 music_data_root = os.path.join(repo_root, r'musicSide_root_data')
 image_data_root = os.path.join(repo_root, r'imageSide_root_data')
 code_root = os.path.join(repo_root, r'code_root')
@@ -31,11 +55,6 @@ save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_la
 from musicSide.DatasetMusic2emotion.tools import va2emotion as va2emo
 from musicSide.DatasetMusic2emotion.tools import utils as u
 from musicSide.DatasetMusic2emotion.DatasetMusic2emotion import DatasetMusic2emotion
-
-
-#verbose = True
-
-
 
 if __name__ == '__main__':
 
@@ -59,7 +78,8 @@ if __name__ == '__main__':
         else:
             if not os.listdir(music_labels_csv_root):  # directory is empty
                 if verbose:
-                    print(f'The path exists but is empty, starting csv generation and save at {save_music_emo_csv_path}')
+                    print(
+                        f'The path exists but is empty, starting csv generation and save at {save_music_emo_csv_path}')
 
                 va2emo.generateMusicEmo_csv(save_music_emo_csv_path, music_data_root)
             else:
@@ -68,10 +88,9 @@ if __name__ == '__main__':
                 u.getCSV_info(save_music_emo_csv_path)
         # %%
 
-
     music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9)
 
     print(f'Hey {music2emotion_Dataset}')
-    #music2emotion_Dataset.print_shapes()
+    # music2emotion_Dataset.print_shapes()
     sys.exit(0)
     # music2emotion_Dataset.print_shapes()

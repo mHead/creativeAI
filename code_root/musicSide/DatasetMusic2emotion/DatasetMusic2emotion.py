@@ -15,29 +15,27 @@ class DatasetMusic2emotion:
         self.emotions_csv_path = os.path.join(self.music_data_root, self.emotions_csv_path_relative)
         self.emotions_label_df = u.read_labels(self.emotions_csv_path)
 
-        self.print_path_info()
         self.Y, self.song_ids = self.extract_labels()
 
         self.X, self.example_in_sample_length, self.sample_rate, self.slices_per_song, self.window_500ms_size = u.read_wavs(
             os.path.join(self.music_data_root, self.wav_dir_relative), preprocess=True)
 
-        self.print_data_info(self.splits_done)
+        self.print(self.splits_done, False)
 
         self.train_fraction = train_frac
         self.X_train, self.Y_train, self.X_test, self.Y_test, self.train_test_indexes = self.make_splits()
 
         self.splits_done = True
-        self.print_data_info(splits_done=self.splits_done)
+        self.print(splits_done=self.splits_done, paths_info=False)
 
-    def print_path_info(self):
-        print(f'The following project is working with the followings paths:'
-              f'music_data_root is: {self.music_data_root}\n'
-              f'emotions_labels csv path: {self.emotions_csv_path}\n'
-              f'audio source wav relative path: {self.wav_dir_relative}'
-              f'')
-        return
+    def print(self, splits_done, paths_info):
+        if paths_info:
+            print(f'The following project is working with the followings paths:'
+                  f'music_data_root is: {self.music_data_root}\n'
+                  f'emotions_labels csv path: {self.emotions_csv_path}\n'
+                  f'audio source wav relative path: {self.wav_dir_relative}'
+                  f'')
 
-    def print_data_info(self, splits_done):
         if not splits_done:
             print(f'*****DONE!\t DatasetMusic2emotion.py created!*****')
 
@@ -50,10 +48,10 @@ class DatasetMusic2emotion:
                   f'')
         else:
             print(f'Splits done!\n'
-                  f'Training set:\nX_train:\n\tlen: {len(self.X_train)} type: {type(self.X_train)} shape: {self.X_train.shape}\n'
-                  f'Y_train\n\tlen: {len(self.Y_train)} type: {type(self.Y_train)} shape: {self.Y_train.shape}\n'
-                  f'Test set:\nX_test:\n\tlen: {len(self.X_test)} type: {type(self.X_test)} shape: {self.X_test.shape}\n'
-                  f'Y_test:\n\tlen: {len(self.Y_test)} type: {type(self.Y_test)} shape: {self.Y_test.shape}\n'
+                  f'Training set:\n-X_train:\n\tlen: {len(self.X_train)} type: {type(self.X_train)} shape: {self.X_train.shape}\n'
+                  f'-Y_train\n\tlen: {len(self.Y_train)} type: {type(self.Y_train)} shape: {self.Y_train.shape}\n'
+                  f'Test set:\n-X_test:\n\tlen: {len(self.X_test)} type: {type(self.X_test)} shape: {self.X_test.shape}\n'
+                  f'-Y_test:\n\tlen: {len(self.Y_test)} type: {type(self.Y_test)} shape: {self.Y_test.shape}\n'
                   f'')
 
         return
@@ -63,7 +61,7 @@ class DatasetMusic2emotion:
 
     def make_splits(self):
         print(f'You are going to split the dataset with followings percentages:\n'
-              f'Train-Test splits: {int(self.train_fraction * 100)}-{(int(1 - self.train_fraction) * 100)}')
+              f'Train-Test splits: {int(self.train_fraction * 100)}-{(100 - self.train_fraction*100)}')
         training_length = int(self.X.shape[0] * self.train_fraction)
         test_length = self.X.shape[0] - training_length
 
