@@ -233,12 +233,14 @@ def read_labels(labels_csv_path):
 # this function reads the DataFrame and create the appropriate data structure for labels
 def extract_labels(labels_df):
     labels = []
+    song_ids = []
     for index, row in labels_df.iterrows():
         labels.append(row[1:])
-
+        song_ids.append(row['song_id'])
     labels = np.asarray(labels)
+    song_ids = np.asarray(song_ids)
     print(f'{labels.shape} : {labels}')
-    return labels
+    return labels, song_ids
 
 # %% 2. Utilities
 def module_exists(module_name):

@@ -42,7 +42,7 @@ if __name__ == '__main__':
             u.getCSV_info(save_music_emo_csv_path)
     # %%
 
-    music2emotion_Dataset = DatasetMusic2emotion(music_data_root, 0.9)
+    music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9)
 
     print(f'Hey {music2emotion_Dataset}')
     #music2emotion_Dataset.print_shapes()
