@@ -92,6 +92,7 @@ class CNN_BiGRU:
         self.Y_test = self.dataset.Y_test.reshape(self.dataset.Y_test.shape[0] * self.dataset.Y_test.shape[1], 1)
 
         self.input_shape = self.X_train.shape[1:]
+        self.input_shape_500ms = (self.input_shape[0] // self.dataset.slices_per_song, self.input_shape[1])
         self.kernel_features_maps = CNNHyperParams.get('kernel_features_maps')
         self.kernel_size = CNNHyperParams.get('kernel_size')
         self.kernel_shift = CNNHyperParams.get('kernel_shift')
@@ -132,8 +133,9 @@ class CNN_BiGRU:
         model = Sequential(name=_name)
 
         # CNN
+        print(f'input shape of conv1D: {self.input_shape_500ms}')
         model.add(Conv1D(filters=self.kernel_features_maps, kernel_size=self.kernel_size, strides=self.kernel_shift,
-                         padding='same', data_format='channels_last', input_shape=self.input_shape,
+                         padding='same', data_format='channels_last', input_shape=self.input_shape_500ms,
                          activation=tf.nn.relu))
 
         model.add(BatchNormalization())

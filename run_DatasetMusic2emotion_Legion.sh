@@ -32,7 +32,8 @@ cd ./creativeAI/code_root || exit
 repo_root_legion="/home/mtesta/creativeAI"
 code="main.py"
 
-echo "calling ${code}, with repo_root: ${repo_root_legion}"
+
+echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
 
 
 python3 ${code} --verbose --repo_root ${repo_root_legion}
