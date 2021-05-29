@@ -16,6 +16,7 @@ class DatasetMusic2emotion:
         self.emotions_label_df = u.read_labels(self.emotions_csv_path)
 
         self.Y, self.song_ids = self.extract_labels()
+        self.num_classes = np.max(self.Y) + 1
 
         self.X, self.example_in_sample_length, self.sample_rate, self.slices_per_song, self.window_500ms_size = u.read_wavs(
             os.path.join(self.music_data_root, self.wav_dir_relative), preprocess=True)
@@ -61,7 +62,7 @@ class DatasetMusic2emotion:
 
     def make_splits(self):
         print(f'You are going to split the dataset with followings percentages:\n'
-              f'Train-Test splits: {int(self.train_fraction * 100)}-{(100 - self.train_fraction*100)}')
+              f'Train-Test splits: {int(self.train_fraction * 100)}-{int(100 - self.train_fraction*100)}')
         training_length = int(self.X.shape[0] * self.train_fraction)
         test_length = self.X.shape[0] - training_length
 

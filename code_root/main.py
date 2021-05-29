@@ -81,7 +81,7 @@ if __name__ == '__main__':
     # %% instantiate model passing the dataset
     b = Benchmark("model_timer")
     b.start_timer()
-    music2emotion_Model = CNN_BiGRU(music2emotion_Dataset, save_dir=save_dir_root, do_train=False, do_test=False,
+    music2emotion_Model = CNN_BiGRU(music2emotion_Dataset, save_dir=save_dir_root, do_train=True, do_test=False,
                                     load_model=False, load_model_path=(None, None))
     b.end_timer()
     # %%

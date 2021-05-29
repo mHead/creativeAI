@@ -79,7 +79,7 @@ class CNN_BiGRU:
 
         self.save_dir = save_dir
         self.dataset = emo_music_dataset_object
-        self.num_classes = len(np.unique(np.argmax(self.dataset.Y_train, 1)))
+        self.num_classes = self.dataset.num_classes
 
         # TODO: check the X_train = np.array(X_train) and then reshape. It is just to be sure it is an array?
         #  If yes,
@@ -108,16 +108,16 @@ class CNN_BiGRU:
         else:
             self.model = self.create_model('CNN_BiGRU')
             print(f'Model created!\ntype:{type(self.model)}\n')
-            print(f'Model summary:\n{self.model.summary()}')
+            self.print_info()
             self.compile_model(do_train, do_test)
 
         if do_train:
             # prepare for training
             self.callbacks_lrr, self.callbacks_mcp = self.create_callbacks(True, True)
 
-            self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.batch_size, epochs=self.epochs,
-                                          validation_data=(self.X_test, self.Y_test), callbacks=[self.callbacks_lrr,
-                                                                                                 self.callbacks_mcp])
+            #self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.batch_size, epochs=self.epochs,
+            #                              validation_data=(self.X_test, self.Y_test), callbacks=[self.callbacks_lrr,
+            #                                                                                     self.callbacks_mcp])
         if do_test:
             # prepare for testing
             self.compile_model(do_train, do_test)
@@ -148,7 +148,7 @@ class CNN_BiGRU:
 
     def compile_model(self, train, test):
 
-        _optimizer = keras.optimizers.adam_v2.Adam(lr=self.learning_rate, beta_1=0.9, beta_2=0.99, amsgrad=False)
+        _optimizer = keras.optimizers.adam_v2.Adam(learning_rate=self.learning_rate, beta_1=0.9, beta_2=0.99, amsgrad=False)
 
         if test:
             self.model.compile(optimizer=_optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
@@ -160,7 +160,7 @@ class CNN_BiGRU:
             print(f'Model compiled for training with loss: categorical_crossentropy and metrics: categorical_accuracy')
             print(f'Model summary:\n{self.model.summary()}')
         else:
-            print(f'The model did not compiled due to ambiguous train/test intent')
+            print(f'The model did not compiled due to ambiguous train/test intent\ntrain: {train}\ntest: {test}\n')
 
     def make_prediction(self):
         _preds = self.model.predict(self.X_test, batch_size=TrainingSettings.get('batch_size'), verbose=1)
@@ -187,7 +187,7 @@ class CNN_BiGRU:
         if model_checkpoint:
             save_model = ModelCheckpoint(os.path.join(self.save_dir, 'best_models/conv1D_BN_D_TDFC_biGRU_FC.h5'),
                                          save_best_only=True, monitor=SavingsPolicies.get('monitor'),
-                                         mode=SavingsPolicies.get('max'))
+                                         mode=SavingsPolicies.get('mode'))
 
         return lr_reduce_, save_model
 
@@ -220,7 +220,11 @@ class CNN_BiGRU:
         plt.show()
         return
 
-    # %% end Evaluations methods
+    def print_info(self):
+        print(f'num_classes: {self.num_classes}')
+        print(f'input_shape: {self.input_shape}')
+
+    # %% end Print methods
 
     # %% 3. IO
     def save_to_json(self):
