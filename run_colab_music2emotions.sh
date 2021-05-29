@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #repo_root_Legion="/home/mtesta/creativeAI"
-repo_root_colab="/contents/creativeAI"
+repo_root_colab="/content/creativeAI"
 code="main.py"
 
 
