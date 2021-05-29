@@ -29,4 +29,10 @@ git clone https://github.com/mHead/creativeAI.git
 
 cd ./creativeAI/code_root || exit
 
-python3 main.py --verbose --repo_root "/home/mtesta/creativeAI"
+repo_root_legion="/home/mtesta/creativeAI"
+code="main.py"
+
+echo "calling ${code}, with repo_root: ${repo_root_legion}"
+
+
+python3 ${code} --verbose --repo_root ${repo_root_legion}

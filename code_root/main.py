@@ -1,5 +1,10 @@
-import sys, os, datetime
-from datetime import datetime
+import os
+import sys
+from musicSide.DatasetMusic2emotion.tools import va2emotion as va2emo
+from musicSide.DatasetMusic2emotion.tools import utils as u
+from musicSide.DatasetMusic2emotion.DatasetMusic2emotion import DatasetMusic2emotion
+from musicSide.Model.CNN_biGRU import CNN_BiGRU
+from musicSide.Model.Benchmark import Benchmark
 
 argv = sys.argv[1:]
 print(argv)
@@ -24,37 +29,15 @@ for arg in argv:
     if arg.__eq__("--generate_csv"):
         generate_csv = True
 
-# import getopt
-# try:
-#    options, arguments = getopt.getopt(argv, "v:g:r:", ["verbose=", "generatecsv=", "repo_root="])
-
-
-# except getopt.GetoptError:
-#    print(f'Invalid usage: *.py [-v <verbose>, -g <generatecsv> <save_name>] -r <repo_root>')
-#    sys.exit(2)
-
-
-# for opt, arg in options:
-#    if opt in ("-v", "verbose"):
-#        verbose = True
-#    elif opt in ("-g", "generatecsv"):
-#        save_music_emo_csv_path = arg
-#        generate_csv = True
-#    elif opt in ("-r", "repo_root"):
-#        repo_root = arg
-
 print(repo_root)
 assert len(repo_root) != 0
 music_data_root = os.path.join(repo_root, r'musicSide_root_data')
 image_data_root = os.path.join(repo_root, r'imageSide_root_data')
 code_root = os.path.join(repo_root, r'code_root')
+save_dir_root = os.path.join(repo_root, r'saves_dir')
 
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
-
-from musicSide.DatasetMusic2emotion.tools import va2emotion as va2emo
-from musicSide.DatasetMusic2emotion.tools import utils as u
-from musicSide.DatasetMusic2emotion.DatasetMusic2emotion import DatasetMusic2emotion
 
 if __name__ == '__main__':
 
@@ -88,16 +71,19 @@ if __name__ == '__main__':
                 u.getCSV_info(save_music_emo_csv_path)
     # %%
     # %% create Dataset Object
-    # music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9)
-    # print(f'Hey I am: {music2emotion_Dataset}')
+    b = Benchmark("dataset_timer")
+    b.start_timer()
+    music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9)
+    print(f'Hey I am: {music2emotion_Dataset}')
+    b.end_timer()
     # %%
 
-
-
-
-
-
+    # %% instantiate model passing the dataset
+    b = Benchmark("model_timer")
+    b.start_timer()
+    music2emotion_Model = CNN_BiGRU(music2emotion_Dataset, save_dir=save_dir_root, do_train=True, do_test=False,
+                                    load_model=False, load_model_path=(None, None))
+    b.end_timer()
+    # %%
 
     sys.exit(0)
-
-
