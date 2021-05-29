@@ -69,7 +69,7 @@ class DatasetMusic2emotion:
         assert training_length + test_length == self.X.shape[0]
 
         splits_indexes = self.generate_splits_indexes(training_length, test_length)
-
+        assert len(splits_indexes) == training_length + test_length
         x_train = []
         x_test = []
         y_train = []
