@@ -1,7 +1,8 @@
+# TODO: need for safer code
 import os
-
 import numpy as np
 import pandas as pd
+import datetime
 
 
 # %% 1. WAV Tools
@@ -158,11 +159,11 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
 
         for i in range(n_slices):
             assert (end_sample - start_sample) == window_size
-            slice = song[start_sample:end_sample]
+            _slice = song[start_sample:end_sample]
             start_sample = end_sample
             end_sample = start_sample + window_size
-            assert len(slice) == window_size
-            slices.append(slice)
+            assert len(_slice) == window_size
+            slices.append(_slice)
 
         slices = np.asarray(slices)
         songs_trimmed.append(slices)
@@ -242,7 +243,9 @@ def extract_labels(labels_df):
     print(f'{labels.shape} : {labels}')
     return labels, song_ids
 
+
 # %% 2. Utilities
+
 def module_exists(module_name):
     try:
         __import__(module_name)
@@ -329,3 +332,9 @@ def check_lengths(array):
             return False
             break
     return True
+
+
+def format_timestamp(current_timestamp: datetime):
+    formatted = current_timestamp.date().__str__() + "_" + current_timestamp.time().__str__()
+    formatted = formatted[:19]
+    return formatted

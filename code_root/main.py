@@ -1,4 +1,5 @@
-import sys, os
+import sys, os, datetime
+from datetime import datetime
 
 argv = sys.argv[1:]
 print(argv)
@@ -51,7 +52,6 @@ code_root = os.path.join(repo_root, r'code_root')
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
-
 from musicSide.DatasetMusic2emotion.tools import va2emotion as va2emo
 from musicSide.DatasetMusic2emotion.tools import utils as u
 from musicSide.DatasetMusic2emotion.DatasetMusic2emotion import DatasetMusic2emotion
@@ -86,11 +86,18 @@ if __name__ == '__main__':
                 # directory is not empty, file exist
                 print(f'\n\n>>The file {save_music_emo_csv_path} already exists\n\n')
                 u.getCSV_info(save_music_emo_csv_path)
-        # %%
+    # %%
+    # %% create Dataset Object
+    # music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9)
+    # print(f'Hey I am: {music2emotion_Dataset}')
+    # %%
 
-    music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9)
 
-    print(f'Hey {music2emotion_Dataset}')
-    # music2emotion_Dataset.print_shapes()
+
+
+
+
+
     sys.exit(0)
-    # music2emotion_Dataset.print_shapes()
+
+
