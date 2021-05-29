@@ -21,16 +21,17 @@ class Benchmark:
 
         self.is_stopped = False
         self.start = self.timer.perf_counter()
+        print(f'[{self.name}] started.')
 
     def end_timer(self):
         if self.is_stopped:
-            raise TimerError(f'Timer is stopped. Use start_timer() to start it.')
+            raise TimerError(f'[{self.name}] is stopped.  Use start_timer() to start it.')
 
         self.is_stopped = True
         self.end = self.timer.perf_counter()
 
         self.elapsed = self.end - self.start
-        print(f'Timer {self.name} stopped.\nElapsed time: {self.elapsed:0.4f} seconds')
+        print(f'[{self.name}] stopped. Elapsed time: {self.elapsed:0.4f} seconds')
 
     def reset_timer(self):
         self.timer = time
@@ -38,3 +39,4 @@ class Benchmark:
         self.start = 0
         self.end = 0
         self.elapsed = 0
+        print(f'[{self.name}] resetted.')

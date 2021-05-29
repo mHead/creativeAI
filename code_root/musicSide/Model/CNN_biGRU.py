@@ -28,12 +28,11 @@ from keras.callbacks import ReduceLROnPlateau
 # from sklearn.preprocessing import LabelEncoder
 # from sklearn.model_selection import train_test_split
 
-## Rest
+# Rest
 # from scipy.fftpack import fft
 # from scipy import signal
 # from scipy.io import wavfile
 
-import json
 
 # %% start global variables
 CNNHyperParams = {
@@ -89,10 +88,8 @@ class CNN_BiGRU:
                                                     self.dataset.X_train.shape[1] * self.dataset.X_train.shape[2], 1)
         self.X_test = self.dataset.X_test.reshape(self.dataset.X_test.shape[0],
                                                   self.dataset.X_test.shape[1] * self.dataset.X_test.shape[2], 1)
-        self.Y_train = self.dataset.Y_train.reshape(self.dataset.Y_train.shape[0],
-                                                    self.dataset.Y_train.shape[1] * self.dataset.Y_train.shape[2], 1)
-        self.Y_test = self.dataset.Y_test.reshape(self.dataset.Y_test.shape[0],
-                                                  self.dataset.Y_test.shape[1] * self.dataset.Y_test.shape[2], 1)
+        self.Y_train = self.dataset.Y_train.reshape(self.dataset.Y_train.shape[0] * self.dataset.Y_train.shape[1], 1)
+        self.Y_test = self.dataset.Y_test.reshape(self.dataset.Y_test.shape[0] * self.dataset.Y_test.shape[1], 1)
 
         self.input_shape = self.X_train.shape[1:]
         self.kernel_features_maps = CNNHyperParams.get('kernel_features_maps')
