@@ -32,6 +32,14 @@ try:
 except ImportError:
     print(f'{ImportError.__traceback__}')
 
+try:
+    if not module_exists('pydub'):
+        install_module('pydub')
+
+    from pydub import AudioSegment
+except ImportError:
+    print(f'{ImportError.__traceback__}')
+
 
 # %% 1. WAV Tools
 
@@ -284,14 +292,6 @@ def mp3_to_wav(source_mp3_dir, dst_wav_dir):
     if not os.path.exists(dst_wav_dir):
         os.mkdir(dst_wav_dir)
 
-        try:
-            if not module_exists('pydub'):
-                install_module('pydub')
-
-            from pydub import AudioSegment
-        except ImportError:
-            print(f'{ImportError.__traceback__}')
-
     for file in os.listdir(source_mp3_dir):
         sound = AudioSegment.from_mp3(os.path.join(source_mp3_dir, file))
         song_id = file.split('.')[0]
@@ -332,7 +332,7 @@ def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
 
     interpolator = interpolate.interp1d(time_old, raw_song.T)
     new_audio = interpolator(time_new).T
-    return new_audio
+    return new_audio, new_sample_rate
 
 
 def remove_hidden_files(path_to_wav_files):
