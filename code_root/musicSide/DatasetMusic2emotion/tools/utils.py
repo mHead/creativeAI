@@ -146,7 +146,7 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
 
         trimmed_raw_audio_files = trim_audio_files(clipped_raw_audio_files, window_size=window_size,
                                                    n_slices=n_slices_per_song)
-
+        del clipped_raw_audio_files
         if verbose:
             print(
                 f'The window_size is 22050:{window_size}, have been created n_slices per song 61:{n_slices_per_song}')
@@ -228,13 +228,16 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
             slices.append(_slice)
 
         slices = np.asarray(slices)
+        assert len(slices) == n_slices
         songs_trimmed.append(slices)
+        del slices
+
     print(f'type slices (of one song) {type(slices)}, len {len(slices)}')
-    del slices
-    print(f'{len(songs_trimmed)}\n{type(songs_trimmed)}')
-    songs_trimmed = np.asarray(songs_trimmed)
+
+    # print(f'{len(songs_trimmed) * len(songs_trimmed[0])*songs_trimmed[0].shape[1]}\n{type(songs_trimmed)}')
+    # songs_trimmed = np.asarray(songs_trimmed)
     print(
-        f'All songs have been trimmed. They are contained inside trimmed_audio_files with shape: {songs_trimmed.shape}\ntype: {type(songs_trimmed)}\nlen:{type(songs_trimmed)}')
+        f'All songs have been trimmed. They are contained inside trimmed_audio_files with shape: {songs_trimmed}\ntype: {type(songs_trimmed)}\nlen:{type(songs_trimmed)}')
 
     return songs_trimmed
 
