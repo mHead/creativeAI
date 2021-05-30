@@ -12,6 +12,8 @@ __START_CLIP = 15000
 __END_CLIP = 45000
 __OFFSET = 250
 
+__INPUT_500ms = 500
+
 def module_exists(module_name):
     try:
         __import__(module_name)
@@ -134,11 +136,11 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         del _min, _max
         if verbose:
             print(f'Clipping.. DONE\n\nCalculating window size for the net input...')
-        input500ms = 500
-        if verbose:
-            print(f'Defining an input value in ms {input500ms}')
 
-        window_size, n_slices_per_song = calculate_window(input500ms, __SAMPLE_AT, clipped_length)
+        if verbose:
+            print(f'Defining an input value in ms {__INPUT_500ms}')
+
+        window_size, n_slices_per_song = calculate_window(__INPUT_500ms, __SAMPLE_AT, clipped_length)
 
         if verbose:
             print(f'DONE!\n\n window_size: {window_size}, n_slices_per_song: {n_slices_per_song}\texpected(22050, '
@@ -230,6 +232,7 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
         slices = np.asarray(slices)
         assert len(slices) == n_slices
         songs_trimmed.append(slices)
+        slices = None
         del slices
 
     print(f'type slices (of one song) {type(slices)}, len {len(slices)}')
@@ -351,7 +354,7 @@ def samples2ms(samples, sample_rate):
 def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
     assert old_sample_rate != new_sample_rate
     memory_management = True
-
+    verbose = False
     duration = raw_song.shape[0] / old_sample_rate
 
     time_old = np.linspace(0, duration, raw_song.shape[0])
@@ -362,13 +365,15 @@ def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
 
     new_duration = new_audio.shape[0] / new_sample_rate
 
-    print(f'new_audio duration:{new_duration} new_audio.shape[0]{new_audio.shape[0]}\nold_audio duration:{duration} old_audio.shape[0]{raw_song.shape[0]}')
+    if verbose:
+        print(f'new_audio duration:{new_duration} new_audio.shape[0]{new_audio.shape[0]}\nold_audio duration:{duration} old_audio.shape[0]{raw_song.shape[0]}')
     assert int(duration) == int(new_duration)
 
     if memory_management:
         collected_garbage = gc.collect()
-        print(f'unreachable objects: {collected_garbage}')
-        print(f'remaining garbage: {gc.garbage}')
+        if verbose:
+            print(f'unreachable objects: {collected_garbage}')
+            print(f'remaining garbage: {gc.garbage}')
         # break the cycle
         if collected_garbage > 0:
             gc.garbage[0].set_next(None)
