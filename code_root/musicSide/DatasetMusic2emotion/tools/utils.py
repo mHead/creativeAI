@@ -69,8 +69,9 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
             print(f'samplerate: {sample_rate} Hz, len:{len(raw_song)}\n{raw_song}')
 
         if sample_rate != 44100:
+            print(f'\nConverting sample_rate...old:{sample_rate}, len raw_song: {len(raw_song)}')
             raw_song, sample_rate = convert_sample_rate(raw_song, old_sample_rate=sample_rate, new_sample_rate=44100)
-
+            print(f'\nConverting sample_rate...new:{sample_rate}, len raw_song: {len(raw_song)}')
         wav_filenames.append(filename)
         raw_audio_lengths.append(len(raw_song))
         raw_audio_vector.append(raw_song)
