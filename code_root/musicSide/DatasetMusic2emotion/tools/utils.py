@@ -3,7 +3,14 @@ import os
 import numpy as np
 import pandas as pd
 import datetime
+import math
+import matplotlib.pyplot as plt
+import gc
 
+__SAMPLE_AT = 44100
+__START_CLIP = 15000
+__END_CLIP = 45000
+__OFFSET = 250
 
 def module_exists(module_name):
     try:
@@ -40,7 +47,6 @@ try:
 except ImportError:
     print(f'{ImportError.__traceback__}')
 
-
 try:
     if not module_exists('gc'):
         install_module('gc')
@@ -57,34 +63,25 @@ except ImportError:
 
 def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_deep=False):
     memory_management = True
-    try:
-        if not module_exists('scipy'):
-            install_module('scipy')
-            from scipy.io.wavfile import read
-            from scipy import interpolate
-        else:
-            from scipy.io.wavfile import read
-            from scipy import interpolate
-        if plot_wav:
-            import matplotlib.pyplot as plt
-
-    except ImportError:
-        print(f'{ImportError.__traceback__}')
 
     wav_filenames = []
-    sample_rate = 0
     raw_audio_lengths = []
     raw_audio_vector = []
 
+    n_resampled = 0
+    wrong_frequencies = []
     for filename in os.listdir(wav_dir):
         sample_rate, raw_song = read(os.path.join(wav_dir, filename))
         if verbose_deep:
             print(f'samplerate: {sample_rate} Hz, len:{len(raw_song)}\n{raw_song}')
 
-        if sample_rate != 44100:
+        if sample_rate != __SAMPLE_AT:
             print(f'\nConverting sample_rate...old:{sample_rate}, len raw_song: {len(raw_song)}')
+            wrong_frequencies.append(sample_rate)
             raw_song, sample_rate = convert_sample_rate(raw_song, old_sample_rate=sample_rate, new_sample_rate=44100)
+            n_resampled += 1
             print(f'\nConverting sample_rate...new:{sample_rate}, len raw_song: {len(raw_song)}')
+
         wav_filenames.append(filename)
         raw_audio_lengths.append(len(raw_song))
         raw_audio_vector.append(raw_song)
@@ -93,8 +90,9 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
 
     if verbose:
         print(f'All {len(raw_audio_vector)} songs has been read, need preprocessing step.')
+        print(f'Between the {len(raw_audio_vector)}, {n_resampled} had these frequencies:\n{wrong_frequencies}')
 
-    del raw_song
+    del raw_song, sample_rate, wrong_frequencies, n_resampled
 
     if preprocess:
         print(f'>>>Preprocessing Step:')
@@ -104,24 +102,22 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         if verbose:
             print(f'min_max on  pure raw_audio_lengths returned {_min}, {_max}')
 
-        _start = 15000 - 250
-        _end = 45000 + 250
-
-        assert sample_rate == 44100
+        _start = __START_CLIP - __OFFSET
+        _end = __END_CLIP + __OFFSET
 
         if verbose:
             print(f'Clip will be done starting from {_start} ms, to {_end} ms')
-            print(f'from sample: {ms2samples(_start, sample_rate)}, to sample {ms2samples(_end, sample_rate)}')
+            print(f'from sample: {ms2samples(_start, __SAMPLE_AT)}, to sample {ms2samples(_end, __SAMPLE_AT)}')
 
         # we have to be sure that our clip could be performed (the clip is inside the music_length)
         if verbose:
             print(
-                f'Padding needed due to minimum length: {_min} < last sample in clip {int(ms2samples(_end, sample_rate))}')
+                f'Padding needed due to minimum length: {_min} < last sample in clip {int(ms2samples(_end, __SAMPLE_AT))}')
 
         padded_raw_audio_vector, padded_raw_audio_lengths = add_padding(audio_files=raw_audio_vector,
                                                                         padding_length=int(
-                                                                            ms2samples(_end, sample_rate) - _min),
-                                                                        boundary=int(ms2samples(_end, sample_rate)))
+                                                                            ms2samples(_end, __SAMPLE_AT) - _min),
+                                                                        boundary=int(ms2samples(_end, __SAMPLE_AT)))
 
         collected_garbage = gc.collect()
         print(f'unreachable objects: {collected_garbage}')
@@ -133,7 +129,7 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         # passing _start, _end in ms
         clipped_raw_audio_files, clipped_length = clip_audio_files(padded_raw_audio_vector, start_ms=_start,
                                                                    end_ms=_end,
-                                                                   sample_rate=sample_rate)
+                                                                   sample_rate=__SAMPLE_AT)
         del padded_raw_audio_vector, padded_raw_audio_lengths
         del _min, _max
         if verbose:
@@ -142,7 +138,7 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         if verbose:
             print(f'Defining an input value in ms {input500ms}')
 
-        window_size, n_slices_per_song = calculate_window(input500ms, sample_rate, clipped_length)
+        window_size, n_slices_per_song = calculate_window(input500ms, __SAMPLE_AT, clipped_length)
 
         if verbose:
             print(f'DONE!\n\n window_size: {window_size}, n_slices_per_song: {n_slices_per_song}\texpected(22050, '
@@ -158,13 +154,13 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
 
     if plot_wav:
         print(f'>>>Plot Step:\n')
-        duration = len(raw_song) / sample_rate
+        duration = len(raw_song) / __SAMPLE_AT
         if verbose:
-            print(f"Music duration: {duration}, samplerate: {sample_rate}, len(data): {len(raw_song)}")
-            print(f"type duration: {type(duration)}, type samplerate: {type(sample_rate)}, type data: {type(raw_song)}")
+            print(f"Music duration: {duration}, samplerate: {__SAMPLE_AT}, len(data): {len(raw_song)}")
+            print(f"type duration: {type(duration)}, type samplerate: {type(__SAMPLE_AT)}, type data: {type(raw_song)}")
 
         # time vector
-        time = np.arange(0, duration, 1 / sample_rate)
+        time = np.arange(0, duration, 1 / __SAMPLE_AT)
 
         plt.plot(time, raw_song)
         plt.xlabel('Time [s]')
@@ -172,7 +168,7 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         plt.title(filename)
         plt.show()
 
-    return trimmed_raw_audio_files, clipped_length, sample_rate, n_slices_per_song, window_size
+    return trimmed_raw_audio_files, clipped_length, __SAMPLE_AT, n_slices_per_song, window_size
 
 
 def clip_audio_files(padded_raw_audio_vector, start_ms, end_ms, sample_rate, verbose=True):
@@ -353,7 +349,6 @@ def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
     assert old_sample_rate != new_sample_rate
     memory_management = True
 
-
     duration = raw_song.shape[0] / old_sample_rate
 
     time_old = np.linspace(0, duration, raw_song.shape[0])
@@ -362,13 +357,19 @@ def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
     interpolator = interpolate.interp1d(time_old, raw_song.T)
     new_audio = interpolator(time_new).T
 
+    new_duration = new_audio.shape[0] / new_sample_rate
+
+    print(f'new_audio duration:{new_duration} new_audio.shape[0]{new_audio.shape[0]}\nold_audio duration:{duration} old_audio.shape[0]{raw_song.shape[0]}')
+    assert int(duration) == int(new_duration)
+
     if memory_management:
         collected_garbage = gc.collect()
         print(f'unreachable objects: {collected_garbage}')
         print(f'remaining garbage: {gc.garbage}')
-        #break the cycle
-        gc.garbage[0].set_next(None)
-        del gc.garbage[:]
+        # break the cycle
+        if collected_garbage > 0:
+            gc.garbage[0].set_next(None)
+            del gc.garbage[:]
 
     return new_audio, new_sample_rate
 
