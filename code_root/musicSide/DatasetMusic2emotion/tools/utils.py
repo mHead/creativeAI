@@ -238,7 +238,7 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
     print(f'type slices (of one song) {type(slices)}, len {len(slices)}')
 
     # print(f'{len(songs_trimmed) * len(songs_trimmed[0])*songs_trimmed[0].shape[1]}\n{type(songs_trimmed)}')
-    # songs_trimmed = np.asarray(songs_trimmed)
+    songs_trimmed = np.asarray(songs_trimmed)
     print(
         f'All songs have been trimmed. They are contained inside trimmed_audio_files with shape: {songs_trimmed}\ntype: {type(songs_trimmed)}\nlen:{type(songs_trimmed)}')
 
