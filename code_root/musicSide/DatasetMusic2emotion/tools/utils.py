@@ -41,9 +41,22 @@ except ImportError:
     print(f'{ImportError.__traceback__}')
 
 
+try:
+    if not module_exists('gc'):
+        install_module('gc')
+        import gc
+
+    if not module_exists('pprint'):
+        install_module('pprint')
+        import pprint
+except ImportError:
+    print(f'{ImportError.__traceback__}')
+
+
 # %% 1. WAV Tools
 
 def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_deep=False):
+    memory_management = True
     try:
         if not module_exists('scipy'):
             install_module('scipy')
@@ -109,7 +122,12 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
                                                                         padding_length=int(
                                                                             ms2samples(_end, sample_rate) - _min),
                                                                         boundary=int(ms2samples(_end, sample_rate)))
+
+        collected_garbage = gc.collect()
+        print(f'unreachable objects: {collected_garbage}')
+        print(f'remaining garbage: {gc.garbage}')
         del raw_audio_vector, raw_audio_lengths
+
         if verbose:
             print(f'Padding.. DONE\n\nCLIPPING...')
         # passing _start, _end in ms
@@ -333,6 +351,8 @@ def samples2ms(samples, sample_rate):
 
 def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
     assert old_sample_rate != new_sample_rate
+    memory_management = True
+
 
     duration = raw_song.shape[0] / old_sample_rate
 
@@ -341,6 +361,15 @@ def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
 
     interpolator = interpolate.interp1d(time_old, raw_song.T)
     new_audio = interpolator(time_new).T
+
+    if memory_management:
+        collected_garbage = gc.collect()
+        print(f'unreachable objects: {collected_garbage}')
+        print(f'remaining garbage: {gc.garbage}')
+        #break the cycle
+        gc.garbage[0].set_next(None)
+        del gc.garbage[:]
+
     return new_audio, new_sample_rate
 
 
