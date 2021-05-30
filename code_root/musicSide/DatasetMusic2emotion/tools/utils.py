@@ -5,6 +5,34 @@ import pandas as pd
 import datetime
 
 
+def module_exists(module_name):
+    try:
+        __import__(module_name)
+    except ImportError:
+        return False
+    else:
+        return True
+
+
+def install_module(module):
+    try:
+        os.system(f'pip3 install {module}')
+    except OSError:
+        print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
+
+
+try:
+    if not module_exists('interpolate'):
+        install_module('scipy')
+        from scipy.io.wavfile import read
+        from scipy import interpolate
+    else:
+        from scipy.io.wavfile import read
+        from scipy import interpolate
+except ImportError:
+    print(f'{ImportError.__traceback__}')
+
+
 # %% 1. WAV Tools
 
 def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_deep=False):
@@ -33,7 +61,7 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
             print(f'samplerate: {sample_rate} Hz, len:{len(raw_song)}\n{raw_song}')
 
         if sample_rate != 44100:
-            raw_song = convert_sample_rate(raw_song, old_sample_rate=sample_rate, new_sample_rate=44100)
+            raw_song, sample_rate = convert_sample_rate(raw_song, old_sample_rate=sample_rate, new_sample_rate=44100)
 
         wav_filenames.append(filename)
         raw_audio_lengths.append(len(raw_song))
@@ -251,21 +279,6 @@ def extract_labels(labels_df):
 
 # %% 2. Utilities
 
-def module_exists(module_name):
-    try:
-        __import__(module_name)
-    except ImportError:
-        return False
-    else:
-        return True
-
-
-def install_module(module):
-    try:
-        os.system(f'pip3 install {module}')
-    except OSError:
-        print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
-
 
 def mp3_to_wav(source_mp3_dir, dst_wav_dir):
     if not os.path.exists(dst_wav_dir):
@@ -308,19 +321,9 @@ def ms2samples(milliseconds, sample_rate):
 def samples2ms(samples, sample_rate):
     return (samples / sample_rate) / 1000
 
+
 def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
     assert old_sample_rate != new_sample_rate
-
-    try:
-        if not module_exists('interpolate'):
-            install_module('scipy')
-            from scipy.io.wavfile import read
-            from scipy import interpolate
-        else:
-            from scipy.io.wavfile import read
-            from scipy import interpolate
-    except ImportError:
-        print(f'{ImportError.__traceback__}')
 
     duration = raw_song.shape[0] / old_sample_rate
 
@@ -330,6 +333,7 @@ def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
     interpolator = interpolate.interp1d(time_old, raw_song.T)
     new_audio = interpolator(time_new).T
     return new_audio
+
 
 def remove_hidden_files(path_to_wav_files):
     filenames = []
