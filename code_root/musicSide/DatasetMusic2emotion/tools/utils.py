@@ -109,19 +109,25 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
                                                                             ms2samples(_end, sample_rate) - _min),
                                                                         boundary=int(ms2samples(_end, sample_rate)))
         del raw_audio_vector, raw_audio_lengths
-
+        if verbose:
+            print(f'Padding.. DONE\n\nCLIPPING...')
         # passing _start, _end in ms
         clipped_raw_audio_files, clipped_length = clip_audio_files(padded_raw_audio_vector, start_ms=_start,
                                                                    end_ms=_end,
                                                                    sample_rate=sample_rate)
         del padded_raw_audio_vector, padded_raw_audio_lengths
         del _min, _max
-
+        if verbose:
+            print(f'Clipping.. DONE\n\nCalculating window size for the net input...')
         input500ms = 500
         if verbose:
             print(f'Defining an input value in ms {input500ms}')
 
         window_size, n_slices_per_song = calculate_window(input500ms, sample_rate, clipped_length)
+
+        if verbose:
+            print(f'DONE!\n\n window_size: {window_size}, n_slices_per_song: {n_slices_per_song}\texpected(22050, '
+                  f'61)\n\nTRIMMING...')
 
         trimmed_raw_audio_files = trim_audio_files(clipped_raw_audio_files, window_size=window_size,
                                                    n_slices=n_slices_per_song)
