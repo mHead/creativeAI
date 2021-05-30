@@ -215,6 +215,8 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
         slices = np.asarray(slices)
         songs_trimmed.append(slices)
     print(f'type slices (of one song) {type(slices)}, len {len(slices)}')
+    del slices
+    print(f'f{songs_trimmed.shape}\n{type(songs_trimmed)}')
     songs_trimmed = np.asarray(songs_trimmed)
     print(
         f'All songs have been trimmed. They are contained inside trimmed_audio_files with shape: {songs_trimmed.shape}\ntype: {type(songs_trimmed)}\nlen:{type(songs_trimmed)}')
@@ -237,10 +239,10 @@ def calculate_window(input_in_ms, sample_rate, single_audio_length):
 
     # nSlices
     slices_single_song = single_audio_length // input500ms_samples
-    print(f'{single_audio_length} // {input500ms_samples} = {slices_single_song}')
+    # print(f'{single_audio_length} // {input500ms_samples} = {slices_single_song}')
     # audio length in term  of samples
     song_samples_length = slices_single_song * input500ms_samples
-    print(f'{song_samples_length} = {slices_single_song} * {input500ms_samples}')
+    # print(f'{song_samples_length} = {slices_single_song} * {input500ms_samples}')
 
     # checks
     if song_samples_length < single_audio_length:
