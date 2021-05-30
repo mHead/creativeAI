@@ -12,8 +12,10 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         if not module_exists('scipy'):
             install_module('scipy')
             from scipy.io.wavfile import read
+            from scipy import interpolate
         else:
             from scipy.io.wavfile import read
+            from scipy import interpolate
         if plot_wav:
             import matplotlib.pyplot as plt
 
@@ -29,6 +31,9 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         sample_rate, raw_song = read(os.path.join(wav_dir, filename))
         if verbose_deep:
             print(f'samplerate: {sample_rate} Hz, len:{len(raw_song)}\n{raw_song}')
+
+        if sample_rate != 44100:
+            raw_song = convert_sample_rate(raw_song, old_sample_rate=sample_rate, new_sample_rate=44100)
 
         wav_filenames.append(filename)
         raw_audio_lengths.append(len(raw_song))
@@ -303,6 +308,28 @@ def ms2samples(milliseconds, sample_rate):
 def samples2ms(samples, sample_rate):
     return (samples / sample_rate) / 1000
 
+def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
+    assert old_sample_rate != new_sample_rate
+
+    try:
+        if not module_exists('interpolate'):
+            install_module('scipy')
+            from scipy.io.wavfile import read
+            from scipy import interpolate
+        else:
+            from scipy.io.wavfile import read
+            from scipy import interpolate
+    except ImportError:
+        print(f'{ImportError.__traceback__}')
+
+    duration = raw_song.shape[0] / old_sample_rate
+
+    time_old = np.linspace(0, duration, raw_song.shape[0])
+    time_new = np.linspace(0, duration, int(raw_song.shape[0] * new_sample_rate / old_sample_rate))
+
+    interpolator = interpolate.interp1d(time_old, raw_song.T)
+    new_audio = interpolator(time_new).T
+    return new_audio
 
 def remove_hidden_files(path_to_wav_files):
     filenames = []

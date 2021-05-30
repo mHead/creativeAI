@@ -12,7 +12,7 @@ import keras
 from keras.models import Sequential
 from keras.models import model_from_json
 
-from keras.layers import Dense, GRU
+from keras.layers import Dense, GRU, Flatten
 from keras.layers import Dropout, BatchNormalization
 from keras.layers import Conv1D, TimeDistributed, Bidirectional
 
@@ -114,7 +114,7 @@ class CNN_BiGRU:
 
         if do_train:
             # prepare for training
-            self.callbacks_lrr, self.callbacks_mcp = self.create_callbacks(True, True)
+            self.callbacks_lrr, self.callbacks_mcp, self.lifecycle_callbacks = self.create_callbacks(True, True)
 
             #self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.batch_size, epochs=self.epochs,
             #                              validation_data=(self.X_test, self.Y_test), callbacks=[self.callbacks_lrr,
@@ -191,7 +191,9 @@ class CNN_BiGRU:
                                          save_best_only=True, monitor=SavingsPolicies.get('monitor'),
                                          mode=SavingsPolicies.get('mode'))
 
-        return lr_reduce_, save_model
+        lifecycle_callbacks = CustomCallback()
+
+        return lr_reduce_, save_model, lifecycle_callbacks
 
     # %% end Model methods
 
@@ -246,4 +248,69 @@ class CNN_BiGRU:
         is_trained = True
 
         return is_trained, model
-    # %% end utilities
+    # %% end utilities and class CNN_BiGRU
+
+# %% 3. Custom Callbacks
+
+class CustomCallback(keras.callbacks.Callback):
+    def on_train_begin(self, logs=None):
+        keys = list(logs.keys())
+        print("Starting training; got log keys: {}".format(keys))
+
+    def on_train_end(self, logs=None):
+        keys = list(logs.keys())
+        print("Stop training; got log keys: {}".format(keys))
+
+    def on_epoch_begin(self, epoch, logs=None):
+        keys = list(logs.keys())
+        print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
+
+    def on_epoch_end(self, epoch, logs=None):
+        keys = list(logs.keys())
+        print("End epoch {} of training; got log keys: {}".format(epoch, keys))
+        print(f'The average loss for epoch {epoch} is {logs["loss"]}'
+              f'Mean Absolute error is {logs["mean_absolute_error"]}')
+
+
+    def on_test_begin(self, logs=None):
+        keys = list(logs.keys())
+        print("Start testing; got log keys: {}".format(keys))
+
+    def on_test_end(self, logs=None):
+        keys = list(logs.keys())
+        print("Stop testing; got log keys: {}".format(keys))
+
+    def on_predict_begin(self, logs=None):
+        keys = list(logs.keys())
+        print("Start predicting; got log keys: {}".format(keys))
+
+    def on_predict_end(self, logs=None):
+        keys = list(logs.keys())
+        print("Stop predicting; got log keys: {}".format(keys))
+
+    def on_train_batch_begin(self, batch, logs=None):
+        keys = list(logs.keys())
+        print("...Training: start of batch {}; got log keys: {}".format(batch, keys))
+
+    def on_train_batch_end(self, batch, logs=None):
+        keys = list(logs.keys())
+        print("...Training: end of batch {}; got log keys: {}".format(batch, keys))
+        print(f'\t**additional info: for batch {batch}, loss is: {logs["loss"]}')
+
+    def on_test_batch_begin(self, batch, logs=None):
+        keys = list(logs.keys())
+        print("...Evaluating: start of batch {}; got log keys: {}".format(batch, keys))
+
+    def on_test_batch_end(self, batch, logs=None):
+        keys = list(logs.keys())
+        print("...Evaluating: end of batch {}; got log keys: {}".format(batch, keys))
+        print(f'\t**additional info: for batch {batch}, loss is: {logs["loss"]}')
+
+    def on_predict_batch_begin(self, batch, logs=None):
+        keys = list(logs.keys())
+        print("...Predicting: start of batch {}; got log keys: {}".format(batch, keys))
+
+    def on_predict_batch_end(self, batch, logs=None):
+        keys = list(logs.keys())
+        print("...Predicting: end of batch {}; got log keys: {}".format(batch, keys))
+# %% end CustomCallbacks
