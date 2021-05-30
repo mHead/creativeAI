@@ -78,11 +78,13 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
             print(f'samplerate: {sample_rate} Hz, len:{len(raw_song)}\n{raw_song}')
 
         if sample_rate != __SAMPLE_AT:
-            print(f'\nConverting sample_rate...old:{sample_rate}, len raw_song: {len(raw_song)}')
+            if verbose_deep:
+                print(f'\nConverting sample_rate...old:{sample_rate}, len raw_song: {len(raw_song)}')
             wrong_frequencies.append(sample_rate)
             raw_song, sample_rate = convert_sample_rate(raw_song, old_sample_rate=sample_rate, new_sample_rate=44100)
             n_resampled += 1
-            print(f'\nConverting sample_rate...new:{sample_rate}, len raw_song: {len(raw_song)}')
+            if verbose_deep:
+                print(f'\nConverting sample_rate...new:{sample_rate}, len raw_song: {len(raw_song)}')
 
         wav_filenames.append(filename)
         raw_audio_lengths.append(len(raw_song))
@@ -232,8 +234,6 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
         slices = np.asarray(slices)
         assert len(slices) == n_slices
         songs_trimmed.append(slices)
-        slices = None
-        del slices
 
     print(f'type slices (of one song) {type(slices)}, len {len(slices)}')
 
