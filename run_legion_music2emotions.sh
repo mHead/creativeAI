@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=DatasetMusic2emotion
+#SBATCH --job-name=music2emotion
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=6
 #SBATCH --partition=cuda
@@ -24,7 +24,8 @@ cd /home/mtesta/ || exit
 #echo "wZJ15QXvZzMAAAAAAAAAAZabVRJ84LA_mJiIY2-khYD9ZHLY9Ot_1I54QXvaJA_X" > token.txt
 #dropbox_uploader.sh
 # %%
-
+# if exists remove repo and reclone updated
+rm -Rf creativeAI/
 git clone https://github.com/mHead/creativeAI.git
 
 cd ./creativeAI/code_root || exit
@@ -37,3 +38,4 @@ echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
 
 
 python3 ${code} --verbose --repo_root ${repo_root_legion}
+/Users/head/PycharmProjects/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav

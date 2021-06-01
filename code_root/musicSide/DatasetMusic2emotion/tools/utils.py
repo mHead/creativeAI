@@ -1,18 +1,25 @@
 # TODO: need for safer code
 import os
+import re
 import numpy as np
 import pandas as pd
 import datetime
-import math
 import matplotlib.pyplot as plt
 import gc
+print(f'****\tutils.py\t****\nUsing garbage collector with thresholds: {gc.get_threshold()}')
 
+save_files = False
+# some difines
 __SAMPLE_AT = 44100
 __START_CLIP = 15000
 __END_CLIP = 45000
 __OFFSET = 250
+__nSLICES = 61
 
 __INPUT_500ms = 500
+__INPUT_500ms_SAMPLES = 22050
+__CLIP_LENGTH = __nSLICES * __INPUT_500ms_SAMPLES
+
 
 def module_exists(module_name):
     try:
@@ -34,9 +41,11 @@ try:
     if not module_exists('interpolate'):
         install_module('scipy')
         from scipy.io.wavfile import read
+        from scipy.io.wavfile import write
         from scipy import interpolate
     else:
         from scipy.io.wavfile import read
+        from scipy.io.wavfile import write
         from scipy import interpolate
 except ImportError:
     print(f'{ImportError.__traceback__}')
@@ -65,14 +74,18 @@ except ImportError:
 
 def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_deep=False):
     memory_management = True
-
+    remove_hidden_files(wav_dir)
     wav_filenames = []
     raw_audio_lengths = []
     raw_audio_vector = []
 
     n_resampled = 0
     wrong_frequencies = []
-    for filename in os.listdir(wav_dir):
+    dir_filenames = os.listdir(wav_dir)
+    dir_filenames.sort(key=lambda f: int(re.sub('\D', '', f)))
+    print(dir_filenames)
+
+    for filename in dir_filenames:
         sample_rate, raw_song = read(os.path.join(wav_dir, filename))
         if verbose_deep:
             print(f'samplerate: {sample_rate} Hz, len:{len(raw_song)}\n{raw_song}')
@@ -96,7 +109,7 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         print(f'All {len(raw_audio_vector)} songs has been read, need preprocessing step.')
         print(f'Between the {len(raw_audio_vector)}, {n_resampled} had these frequencies:\n{wrong_frequencies}')
 
-    del raw_song, sample_rate, wrong_frequencies, n_resampled
+    del raw_song, sample_rate, wrong_frequencies, n_resampled, dir_filenames
 
     if preprocess:
         print(f'>>>Preprocessing Step:')
@@ -116,7 +129,8 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         # we have to be sure that our clip could be performed (the clip is inside the music_length)
         if verbose:
             print(
-                f'Padding needed due to minimum length: {_min} < last sample in clip {int(ms2samples(_end, __SAMPLE_AT))}')
+                f'Padding needed due to minimum length: {_min} < last sample in clip '
+                f'{int(ms2samples(_end, __SAMPLE_AT))}')
 
         padded_raw_audio_vector, padded_raw_audio_lengths = add_padding(audio_files=raw_audio_vector,
                                                                         padding_length=int(
@@ -139,6 +153,11 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         if verbose:
             print(f'Clipping.. DONE\n\nCalculating window size for the net input...')
 
+        if save_files:
+            save_dir = os.path.join(wav_dir, 'clips_30seconds_preprocessed')
+            print(f'All preprocessed files will be saved into {save_dir}')
+            save_preprocessed_audios(clipped_raw_audio_files, wav_filenames, save_dir)
+
         if verbose:
             print(f'Defining an input value in ms {__INPUT_500ms}')
 
@@ -155,6 +174,10 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
             print(
                 f'The window_size is 22050:{window_size}, have been created n_slices per song 61:{n_slices_per_song}')
             print(f'trimmed_raw_audio_file.shape ({trimmed_raw_audio_files.shape})')
+    else:
+        # read MusicEmo_dataset_preprocessed_wav
+        print('dumb end. Call load_dataset_from_directory() without preprocessing. '
+              'This means that we do have the clipped song stored.')
 
     if plot_wav:
         print(f'>>>Plot Step:\n')
@@ -175,12 +198,39 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
     return trimmed_raw_audio_files, clipped_length, __SAMPLE_AT, n_slices_per_song, window_size
 
 
+def read_preprocessed_wavs(wav_dir):
+    filenames = os.listdir(wav_dir)
+    filenames.sort(key=lambda f: int(re.sub('\D', '', f)))
+    preprocessed_wavs = []
+    memory_management = True
+
+    for filename in filenames:
+        sample_rate, clipped_audio = read(os.path.join(wav_dir, filename))
+        assert sample_rate == __SAMPLE_AT
+        assert len(clipped_audio) == __CLIP_LENGTH
+        song_id = filename.split('.')[0]
+        preprocessed_wavs.append(clipped_audio)
+
+    preprocessed_wavs = np.array(preprocessed_wavs).reshape(len(filenames), __CLIP_LENGTH)
+
+
+    trimmed_raw_audio_files = trim_audio_files(preprocessed_wavs, window_size=__INPUT_500ms_SAMPLES,
+                                               n_slices=__nSLICES)
+    assert len(trimmed_raw_audio_files) == len(preprocessed_wavs)
+    if memory_management:
+        del preprocessed_wavs, clipped_audio
+    trimmed_raw_audio_files = np.array(trimmed_raw_audio_files).reshape(len(filenames), __nSLICES, __INPUT_500ms_SAMPLES)
+
+    return trimmed_raw_audio_files, __CLIP_LENGTH, __SAMPLE_AT, __nSLICES, __INPUT_500ms_SAMPLES
+
+
+
 def clip_audio_files(padded_raw_audio_vector, start_ms, end_ms, sample_rate, verbose=True):
     clipped_raw_audio_files = []
     clipped_raw_audio_lengths = []
     start_sample = int(ms2samples(start_ms, sample_rate))
     end_sample = int(ms2samples(end_ms, sample_rate))
-
+    memory_management = True
     if verbose:
         print(f'\t>> clip_audio_files will clip with these indices')
         print(f'\t start {start_sample} : end {end_sample}')
@@ -196,8 +246,11 @@ def clip_audio_files(padded_raw_audio_vector, start_ms, end_ms, sample_rate, ver
     # check lengths
     true = check_lengths(clipped_raw_audio_lengths)
     assert true
+    clip_length = clipped_raw_audio_lengths[0]
+    if memory_management:
+        del padded_raw_audio_vector, clipped_raw_audio_lengths, start_sample, end_sample
 
-    return clipped_raw_audio_files, clipped_raw_audio_lengths[0]
+    return clipped_raw_audio_files, clip_length
 
 
 '''
@@ -215,7 +268,7 @@ return [
 
 def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
     # get len of the first song (len is equal for all)
-    audio_length = len(clipped_raw_audio_files[0])
+    memory_management = True
 
     songs_trimmed = []  # dataset level
     for song in clipped_raw_audio_files:
@@ -228,6 +281,7 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
             _slice = song[start_sample:end_sample]
             start_sample = end_sample
             end_sample = start_sample + window_size
+            _slice = np.array(_slice, dtype='int16')
             assert len(_slice) == window_size
             slices.append(_slice)
 
@@ -235,12 +289,14 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
         assert len(slices) == n_slices
         songs_trimmed.append(slices)
 
-    print(f'type slices (of one song) {type(slices)}, len {len(slices)}')
-
+    one_slice = slices[0]
+    one_sample = one_slice[0]
+    print(f'type slices (of one song) {type(slices)}, len {len(slices)}, type of single element of one slice{type(one_sample)}')
+    if memory_management:
+        del clipped_raw_audio_files, _slice, slices, song
     # print(f'{len(songs_trimmed) * len(songs_trimmed[0])*songs_trimmed[0].shape[1]}\n{type(songs_trimmed)}')
-    songs_trimmed = np.asarray(songs_trimmed)
-    print(
-        f'All songs have been trimmed. They are contained inside trimmed_audio_files with shape: {songs_trimmed}\ntype: {type(songs_trimmed)}\nlen:{type(songs_trimmed)}')
+    print(f'All songs have been trimmed.\n'
+          f'Converting songs_trimmed list into np.array and return back to caller')
 
     return songs_trimmed
 
@@ -256,7 +312,6 @@ returns padding_length, n_slices, input_in_ms2samples
 def calculate_window(input_in_ms, sample_rate, single_audio_length):
     input500ms_samples = ms2samples(input_in_ms, sample_rate)
     padding = False
-    padding_length = 0
 
     # nSlices
     slices_single_song = single_audio_length // input500ms_samples
@@ -269,8 +324,6 @@ def calculate_window(input_in_ms, sample_rate, single_audio_length):
     if song_samples_length < single_audio_length:
         samples_last_slice = single_audio_length - song_samples_length
         assert samples_last_slice < input500ms_samples
-
-        padding_length = input500ms_samples - samples_last_slice
 
         padding = True
 
@@ -313,6 +366,15 @@ def extract_labels(labels_df):
     print(f'{labels.shape} : {labels}')
     return labels, song_ids
 
+def save_preprocessed_audios(audio_raw_files, wav_filenames, directory_to_save):
+    if not os.path.exists(directory_to_save):
+        os.mkdir(directory_to_save)
+
+    for filename, audio in zip(wav_filenames, audio_raw_files):
+        save_path = os.path.join(directory_to_save, filename)
+        write(save_path, __SAMPLE_AT, audio)
+
+    assert len(os.listdir(directory_to_save)) == len(wav_filenames)
 
 # %% 2. Utilities
 
@@ -353,8 +415,9 @@ def samples2ms(samples, sample_rate):
 
 def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
     assert old_sample_rate != new_sample_rate
-    memory_management = True
-    verbose = False
+
+    memory_management = False
+    verbose = True
     duration = raw_song.shape[0] / old_sample_rate
 
     time_old = np.linspace(0, duration, raw_song.shape[0])
@@ -366,7 +429,8 @@ def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
     new_duration = new_audio.shape[0] / new_sample_rate
 
     if verbose:
-        print(f'new_audio duration:{new_duration} new_audio.shape[0]{new_audio.shape[0]}\nold_audio duration:{duration} old_audio.shape[0]{raw_song.shape[0]}')
+        print(f'new_audio duration:{new_duration} new_audio.shape[0]{new_audio.shape[0]}\nold_audio duration:{duration}'
+              f' old_audio.shape[0]{raw_song.shape[0]}')
     assert int(duration) == int(new_duration)
 
     if memory_management:
@@ -387,11 +451,6 @@ def remove_hidden_files(path_to_wav_files):
     for file in os.listdir(path_to_wav_files):
         if file.startswith('.'):
             os.remove(os.path.join(path_to_wav_files, file))
-        else:
-            filename = file.split('.')[0]
-
-            # if int(filename, base=10) in arousal_df['song_id'].values:
-            #   filenames.append(file)
 
     print(f"clips_45 seconds len: {len(filenames)}\nContent:\n{filenames}")
 
@@ -408,7 +467,6 @@ def check_lengths(array):
     for e in array:
         if e != first:
             return False
-            break
     return True
 
 

@@ -14,6 +14,7 @@ verbose = False
 generate_csv = False
 pick_repo = False
 
+run_config = ''
 save_csv_path = r''
 
 for arg in argv:
@@ -28,6 +29,8 @@ for arg in argv:
         pick_repo = True
     if arg.__eq__("--generate_csv"):
         generate_csv = True
+    if arg.__eq__("--legion"):
+        run_config = 'legion'
 
 print(repo_root)
 assert len(repo_root) != 0
@@ -73,7 +76,7 @@ if __name__ == '__main__':
     # %% create Dataset Object
     b = Benchmark("dataset_timer")
     b.start_timer()
-    music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9)
+    music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9, run_config=run_config, preprocess=False)
     print(f'Hey I am: {music2emotion_Dataset}')
     b.end_timer()
     # %%

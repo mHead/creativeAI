@@ -4,12 +4,18 @@ from ..DatasetMusic2emotion.tools import utils as u
 
 
 class DatasetMusic2emotion:
-
+    """This is the dataset wrapper class
+        params: data_root, train_fraction
+        kwargs: {"run_config: string", "preprocess" : bool}
+    """
     def __init__(self, data_root, train_frac, **kwargs):
         print(f'Creating an object DatasetMusic2emotion')
+        self.run_configuration = kwargs.get('run_config')
+
         self.splits_done = False
         self.music_data_root = data_root
         self.wav_dir_relative = r'MusicEmo_dataset_raw_wav/clips_45seconds_wav'
+        self.wav_dir_relative_preprocessed = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed'
         self.emotions_csv_path_relative = r'[labels]emotion_average_dataset_csv/music_emotions_labels.csv'
 
         self.emotions_csv_path = os.path.join(self.music_data_root, self.emotions_csv_path_relative)
@@ -18,8 +24,7 @@ class DatasetMusic2emotion:
         self.Y, self.song_ids = self.extract_labels()
         self.num_classes = np.max(self.Y) + 1
 
-        self.X, self.example_in_sample_length, self.sample_rate, self.slices_per_song, self.window_500ms_size = u.read_wavs(
-            os.path.join(self.music_data_root, self.wav_dir_relative), preprocess=True)
+        self.X, self.example_in_sample_length, self.sample_rate, self.slices_per_song, self.window_500ms_size = self.load_X_dataset(preprocess=kwargs.get('preprocess'))
 
         self.print(self.splits_done, False)
 
@@ -110,3 +115,16 @@ class DatasetMusic2emotion:
         assert n_training_samples == train_len and n_test_samples == test_len
 
         return indexes
+
+    '''
+    returns X (744, 61, 22050), example_in_sample_length: 22050*61, sample_rate, slices_per_song = 61, window_size = 500ms as 22050 samples
+    if preprocess = True the preprocessing pipeline is started, otherwise it was executed and read_wavs() just have to load preprocessed wavs into
+    MusicEmo_dataset_preprocessed_wav/ directory, under musicSide_root_data
+    NOTE: when preprocess is active and we want to save the preprocessed wav, the pipeline ends at trim, so the folder will holds n_slices*n_song files with names
+    "song_id+slice_no"
+    '''
+    def load_X_dataset(self, preprocess):
+        if preprocess:
+            return u.read_wavs(os.path.join(self.music_data_root, self.wav_dir_relative), preprocess=preprocess)
+        else:
+            return u.read_preprocessed_wavs(os.path.join(self.music_data_root, self.wav_dir_relative_preprocessed))
