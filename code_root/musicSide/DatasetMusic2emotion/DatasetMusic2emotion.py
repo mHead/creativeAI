@@ -32,7 +32,7 @@ class DatasetMusic2emotion:
         self.X_train, self.Y_train, self.X_test, self.Y_test, self.train_test_indexes = self.make_splits()
 
         self.splits_done = True
-        self.print(splits_done=self.splits_done, paths_info=False)
+        self.print(splits_done=self.splits_done, paths_info=False), #
 
     def print(self, splits_done, paths_info):
         if paths_info:
@@ -128,3 +128,17 @@ class DatasetMusic2emotion:
             return u.read_wavs(os.path.join(self.music_data_root, self.wav_dir_relative), preprocess=preprocess)
         else:
             return u.read_preprocessed_wavs(os.path.join(self.music_data_root, self.wav_dir_relative_preprocessed))
+
+    def get_shaped_dataset(self):
+        # originally into CNN_BiGRU.__init__()
+        x_train = self.X_train.reshape(self.X_train.shape[0] * self.X_train.shape[1], 1, self.X_train.shape[2])
+        x_test = self.X_test.reshape(self.X_test.shape[0] * self.X_test.shape[1], 1, self.X_test.shape[2])
+
+        y_train = self.Y_train.reshape(self.Y_train.shape[0] * self.Y_train.shape[1], 1)
+        y_test = self.Y_test.reshape(self.Y_test.shape[0] * self.Y_test.shape[1], 1)
+
+        # from [7, 7, 7 ..] to [[0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 1]]
+        y_train_one_hot = u.to_one_hot(y_train)
+        y_test_one_hot = u.to_one_hot(y_test)
+
+        return x_train, x_test, y_train_one_hot, y_test_one_hot

@@ -219,7 +219,7 @@ def read_preprocessed_wavs(wav_dir):
     assert len(trimmed_raw_audio_files) == len(preprocessed_wavs)
     if memory_management:
         del preprocessed_wavs, clipped_audio
-    trimmed_raw_audio_files = np.array(trimmed_raw_audio_files).reshape(len(filenames), __nSLICES, __INPUT_500ms_SAMPLES)
+    trimmed_raw_audio_files = np.array(trimmed_raw_audio_files, dtype='int32').reshape(len(filenames), __nSLICES, __INPUT_500ms_SAMPLES)
 
     return trimmed_raw_audio_files, __CLIP_LENGTH, __SAMPLE_AT, __nSLICES, __INPUT_500ms_SAMPLES
 
@@ -281,7 +281,7 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
             _slice = song[start_sample:end_sample]
             start_sample = end_sample
             end_sample = start_sample + window_size
-            _slice = np.array(_slice, dtype='int16')
+            _slice = np.array(_slice, dtype='int32')
             assert len(_slice) == window_size
             slices.append(_slice)
 
@@ -474,3 +474,16 @@ def format_timestamp(current_timestamp: datetime):
     formatted = current_timestamp.date().__str__() + "_" + current_timestamp.time().__str__()
     formatted = formatted[:19]
     return formatted
+
+
+def to_one_hot(y):
+    y_one_hot = []
+    for i in range(len(y)):
+        one_hot = np.zeros(8) # TODO: remove hardcoded 8
+        for label in range(8):
+            if label == y[i][0]:
+                one_hot[label] = 1
+        y_one_hot.append(one_hot)
+
+    y_one_hot = np.array(y_one_hot).reshape(y.shape[0] * y.shape[1], 8)
+    return y_one_hot
