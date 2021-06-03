@@ -1,6 +1,4 @@
 numpy
-sys
-os
 pandas
 csv
 scipy.io.wavfile
