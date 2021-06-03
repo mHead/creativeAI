@@ -109,7 +109,7 @@ def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_d
         print(f'All {len(raw_audio_vector)} songs has been read, need preprocessing step.')
         print(f'Between the {len(raw_audio_vector)}, {n_resampled} had these frequencies:\n{wrong_frequencies}')
 
-    del raw_song, sample_rate, wrong_frequencies, n_resampled, dir_filenames
+    del sample_rate, wrong_frequencies, n_resampled, dir_filenames
 
     if preprocess:
         print(f'>>>Preprocessing Step:')
