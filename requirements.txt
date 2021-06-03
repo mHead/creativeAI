@@ -1,6 +1,5 @@
 numpy
 pandas
-csv
 scipy.io.wavfile
 
 
