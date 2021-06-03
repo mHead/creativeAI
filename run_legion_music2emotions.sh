@@ -38,4 +38,4 @@ echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
 
 
 python3 ${code} --verbose --repo_root ${repo_root_legion}
-/Users/head/PycharmProjects/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
+#/Users/head/PycharmProjects/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav

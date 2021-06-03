@@ -105,29 +105,6 @@ class CNN_BiGRU:
 
         self.X_train, self.X_test, self.Y_train, self.Y_test = self.dataset.get_shaped_dataset()
 
-        #y_train_one_hot = []
-        #for i in range(len(self.Y_train)):
-            #one_hot = np.zeros(8)
-            #for l in range(self.num_classes):
-                #if l == self.Y_train[i][0]:
-                    #one_hot[l] = 1
-           # y_train_one_hot.append(one_hot)
-        #y_train_one_hot = np.array(y_train_one_hot).reshape(self.dataset.Y_train.shape[0] * self.dataset.Y_train.shape[1], 8)
-
-        #y_test_one_hot = []
-        #for i in range(len(self.Y_test)):
-        #    one_hot = np.zeros(8)
-        #    for l in range(self.num_classes):
-        #        if l == self.Y_test[i][0]:
-        #            one_hot[l] = 1
-        #    y_test_one_hot.append(one_hot)
-        #y_test_one_hot = np.array(y_test_one_hot).reshape(self.dataset.Y_test.shape[0] * self.dataset.Y_test.shape[1], 8)
-
-        #self.Y_train = y_train_one_hot
-        #self.Y_test = y_test_one_hot
-
-
-
         self.input_shape = self.dataset.X_train.shape[1:] # (61, 22050)
         self.input_shape_500ms = np.array([self.input_shape[1], 1])
 
@@ -212,7 +189,7 @@ class CNN_BiGRU:
         print(f'{abc}')
         return _preds
 
-    def evaluate_model(self, verbose=0):
+    def evaluate_model(self, verbose=1):
         best_score = self.model.evaluate(self.X_test, self.Y_test, verbose)
         print(f'The accuracy of the model is {self.model.metrics_names[1], best_score[1] * 100}')
         return best_score
@@ -224,7 +201,7 @@ class CNN_BiGRU:
             lr_reduce_ = ReduceLROnPlateau(monitor=TrainingPolicies.get('monitor'),
                                            factor=TrainingPolicies.get('factor'),
                                            patience=TrainingPolicies.get('patience'),
-                                           min_lr=TrainingPolicies.get('min_lr'), verbose=TrainingPolicies.get('quiet'))
+                                           min_lr=TrainingPolicies.get('min_lr'), verbose=TrainingPolicies.get('verbose'))
 
         if model_checkpoint:
             save_model = ModelCheckpoint(os.path.join(self.save_dir, 'best_models/conv1D_BN_D_TDFC_biGRU_FC.h5'),
@@ -293,6 +270,7 @@ class CNN_BiGRU:
 # %% 3. Custom Callbacks
 
 class CustomCallback(keras.callbacks.Callback):
+
     def on_train_begin(self, logs=None):
         keys = list(logs.keys())
         print("Starting training; got log keys: {}".format(keys))
@@ -308,8 +286,12 @@ class CustomCallback(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         keys = list(logs.keys())
         print("End epoch {} of training; got log keys: {}".format(epoch, keys))
-        print(f'The average loss for epoch {epoch} is {logs["loss"]}')
-              #f'Mean Absolute error is {logs["mean_absolute_error"]}')
+        print(f'>>> epoch {epoch} stats:\n')
+        print(f'\tThe average loss is {logs["loss"]}\n'
+              f'\tCategorical accuracy {logs["categorical_accuracy"]}\n'
+              f'\tValidation loss id {logs["val_loss"]}\n'
+              f'\tValidation categorical accuracy is {logs["val_categorical_accuracy"]}\n'
+              f'\tLearning rate: {logs["lr"]}\n')
 
 
     def on_test_begin(self, logs=None):
