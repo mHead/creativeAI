@@ -1,4 +1,4 @@
-from code_root.musicSide.DatasetMusic2emotion.tools.utils import ms2samples, samples2ms
+from ..code_root.musicSide.DatasetMusic2emotion.tools.utils import ms2samples, samples2ms
 
 
 # dumb test
