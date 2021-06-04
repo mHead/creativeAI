@@ -410,7 +410,7 @@ def ms2samples(milliseconds, sample_rate):
 
 
 def samples2ms(samples, sample_rate):
-    return (samples / sample_rate) / 1000
+    return (samples / sample_rate) * 1000
 
 
 def convert_sample_rate(raw_song, old_sample_rate, new_sample_rate):
