@@ -25,8 +25,8 @@ cd /home/mtesta/ || exit
 #dropbox_uploader.sh
 # %%
 # if exists remove repo and reclone updated
-# rm -Rf creativeAI/
-# git clone https://github.com/mHead/creativeAI.git
+rm -Rf creativeAI/
+git clone https://github.com/mHead/creativeAI.git
 
 cd ./creativeAI/code_root || exit
 
