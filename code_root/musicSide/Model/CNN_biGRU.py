@@ -233,6 +233,7 @@ class CNN_BiGRU:
         print(f'{max(self.history.history["val_categorical_accuracy"])}')
         self.print_loss()
         self.print_accuracy()
+        self.plot_traincurve()
         return
 
     def print_accuracy(self):
@@ -242,6 +243,7 @@ class CNN_BiGRU:
         plt.ylabel('accuracy')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
+        print(f'Saving..... Accuracy Graph\tto {self.save_dir+"model_accuracy.png"}\n')
         plt.savefig(self.save_dir+"model_accuracy.png")
         #plt.show()
 
@@ -254,6 +256,7 @@ class CNN_BiGRU:
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
+        print(f'Saving..... Loss Graph\tto {self.save_dir+"model_loss.png"}\n')
         plt.savefig(self.save_dir+"model_loss.png")
         #plt.show()
         return
@@ -268,9 +271,10 @@ class CNN_BiGRU:
             ln = len(self.history[measure])
             plt.plot(range(1, ln+1), self.history[measure], color + '-', label=measure)
         plt.legend(loc='upper left', scatterpoints=1, frameon=False)
-
+        print(f'Saving..... Train Curve\tto {self.save_dir+"train_curve.png"}\n')
         plt.savefig(self.save_dir+"train_curve.png")
         #plt.show()
+        return
 
 
     def print_info(self):
