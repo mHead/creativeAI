@@ -28,6 +28,9 @@ cd /home/mtesta/ || exit
 rm -Rf creativeAI/
 git clone https://github.com/mHead/creativeAI.git
 
+cd ./creativeAI || exit
+chmod +x run_legion_music2emotions.sh
+
 cd ./creativeAI/code_root || exit
 
 repo_root_legion="/home/mtesta/creativeAI"
