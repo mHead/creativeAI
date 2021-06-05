@@ -59,6 +59,7 @@ TrainingPolicies = {
     "factor": 0.9,
     "patience": 20,
     "min_lr": 0.000001,
+    "verbose": 1
 }
 
 SavingsPolicies = {
@@ -284,7 +285,8 @@ class CNN_BiGRU:
         plt.legend(loc='upper left', scatterpoints=1, frameon=False)
     # %% end utilities and class CNN_BiGRU
 
-# %% 3. Custom Callbacks
+# %% 3. Custom Callbacksù
+
 
 class CustomCallback(keras.callbacks.Callback):
 
