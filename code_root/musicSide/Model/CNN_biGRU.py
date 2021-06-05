@@ -243,7 +243,7 @@ class CNN_BiGRU:
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
         plt.savefig(self.save_dir+"model_accuracy.png")
-        plt.show()
+        #plt.show()
 
         return
 
@@ -255,7 +255,7 @@ class CNN_BiGRU:
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
         plt.savefig(self.save_dir+"model_loss.png")
-        plt.show()
+        #plt.show()
         return
 
     def plot_traincurve(self):
@@ -270,7 +270,7 @@ class CNN_BiGRU:
         plt.legend(loc='upper left', scatterpoints=1, frameon=False)
 
         plt.savefig(self.save_dir+"train_curve.png")
-        plt.show()
+        #plt.show()
 
 
     def print_info(self):
