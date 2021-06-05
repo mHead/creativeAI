@@ -28,6 +28,9 @@ cd /home/mtesta/ || exit
 rm -Rf creativeAI/
 git clone https://github.com/mHead/creativeAI.git
 
+echo "cloning creativeAI repository DONE!"
+echo "moving the dataset into the data_root inside the repository"
+cp /home/mtesta/data/clips_30seconds_preprocessed /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
 cd ./creativeAI || exit
 chmod +x run_legion_music2emotions.sh
 
@@ -47,5 +50,5 @@ pip install tensorflow --user
 echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
 
 
-python3 ${code} --verbose --repo_root ${repo_root_legion} --legion
+python3 ${code} --verbose --legion --repo_root ${repo_root_legion}
 #/Users/head/PycharmProjects/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
