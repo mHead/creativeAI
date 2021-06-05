@@ -69,6 +69,13 @@ SavingsPolicies = {
     "verbose": 1
 }
 
+PlotCSS = {
+    'loss' : 'r',
+    'acc'  : 'b',
+    'val_loss' : 'm',
+    'val_acc' : 'g'
+}
+
 
 # %% end global variables
 
@@ -105,8 +112,7 @@ class CNN_BiGRU:
 
         self.X_train, self.X_test, self.Y_train, self.Y_test = self.dataset.get_shaped_dataset()
 
-        self.input_shape = self.dataset.X_train.shape[1:] # (61, 22050)
-        self.input_shape_500ms = np.array([self.input_shape[1], 1])
+        self.input_shape_conv1d = self.X_train.shape[1:]
 
         self.kernel_features_maps = CNNHyperParams.get('kernel_features_maps')
         self.kernel_size = CNNHyperParams.get('kernel_size')
@@ -149,10 +155,10 @@ class CNN_BiGRU:
         model = Sequential(name=_name)
 
         # CNN
-        print(f'input shape of conv1D: {self.input_shape_500ms}')
+        print(f'input shape of conv1D: {self.input_shape_conv1d}')
 
         model.add(Conv1D(filters=self.kernel_features_maps, kernel_size=self.kernel_size, strides=self.kernel_shift,
-                         padding='same', data_format='channels_last', batch_input_shape=(self.batch_size, 1, 22050), input_shape=(1, 22050),
+                         padding='same', data_format='channels_last', input_shape=self.input_shape_conv1d,
                          activation=tf.nn.relu))
 
         model.add(BatchNormalization())
@@ -243,7 +249,7 @@ class CNN_BiGRU:
 
     def print_info(self):
         print(f'num_classes: {self.num_classes}')
-        print(f'input_shape: {self.input_shape_500ms}')
+        print(f'input_shape: {self.input_shape_conv1d}')
         print(f' - Model.X_train shape: {self.X_train.shape}\n - Model.X_test shape: {self.X_test.shape}\n - Model.Y_train shape:{self.Y_train.shape}\n - Model.Y_test shape: {self.Y_test.shape}\n')
     # %% end Print methods
 
@@ -265,6 +271,17 @@ class CNN_BiGRU:
         is_trained = True
 
         return is_trained, model
+
+    def plot_traincurve(self):
+        plt.figure(figsize=(10,6))
+        plt.title("Training Curve")
+        plt.xlabel("Epoch")
+
+        for measure in self.history.keys():
+            color = PlotCSS.get(measure)
+            ln = len(self.history[measure])
+            plt.plot(range(1, ln+1), self.history[measure], color + '-', label=measure)
+        plt.legend(loc='upper left', scatterpoints=1, frameon=False)
     # %% end utilities and class CNN_BiGRU
 
 # %% 3. Custom Callbacks

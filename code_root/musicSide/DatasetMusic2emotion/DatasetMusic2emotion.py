@@ -1,5 +1,11 @@
 import os
 import numpy as np
+import sklearn
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.preprocessing import LabelEncoder
+from collections import Counter
 from ..DatasetMusic2emotion.tools import utils as u
 
 
@@ -9,28 +15,27 @@ class DatasetMusic2emotion:
         kwargs: {"run_config: string", "preprocess" : bool}
     """
     def __init__(self, data_root, train_frac, **kwargs):
-        print(f'Creating an object DatasetMusic2emotion')
         self.run_configuration = kwargs.get('run_config')
-
+        print(f'Creating an object DatasetMusic2emotion')
+        # Settings and paths
         self.splits_done = False
         self.music_data_root = data_root
         self.wav_dir_relative = r'MusicEmo_dataset_raw_wav/clips_45seconds_wav'
-        self.wav_dir_relative_preprocessed = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed'
+        self.wav_dir_relative_preprocessed = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG'
         self.emotions_csv_path_relative = r'[labels]emotion_average_dataset_csv/music_emotions_labels.csv'
-
         self.emotions_csv_path = os.path.join(self.music_data_root, self.emotions_csv_path_relative)
-        self.emotions_label_df = u.read_labels(self.emotions_csv_path)
-
-        self.Y, self.song_ids = self.extract_labels()
-        self.num_classes = np.max(self.Y) + 1
-
-        self.X, self.example_in_sample_length, self.sample_rate, self.slices_per_song, self.window_500ms_size = self.load_X_dataset(preprocess=kwargs.get('preprocess'))
-
-        self.print(self.splits_done, False)
-
         self.train_fraction = train_frac
-        self.X_train, self.Y_train, self.X_test, self.Y_test, self.train_test_indexes = self.make_splits()
-
+        self.test_fraction = 1 - self.train_fraction
+        # Labels
+        self.Y, self.song_ids, self.single_label_array = self.extract_labels(self.emotions_csv_path)
+        self.num_classes = np.max(self.Y) + 1
+        print(f'classes : {self.num_classes} : {self.single_label_array}')
+        print(f'For songs id: {self.song_ids}')
+        # Data
+        self.X, self.example_in_sample_length, self.sample_rate, self.slices_per_song, self.window_500ms_size = self.load_X_dataset(preprocess=kwargs.get('preprocess'))
+        self.print(self.splits_done, False)
+        # Splits
+        self.X_train, self.Y_train, self.X_test, self.Y_test, self.train_song_labels, self.test_song_labels = self.make_splits()
         self.splits_done = True
         self.print(splits_done=self.splits_done, paths_info=False), #
 
@@ -62,39 +67,46 @@ class DatasetMusic2emotion:
 
         return
 
-    def extract_labels(self):
-        return u.extract_labels(self.emotions_label_df)
+    def extract_labels(self, path):
+        return u.extract_labels(path)
 
     def make_splits(self):
         print(f'You are going to split the dataset with followings percentages:\n'
-              f'Train-Test splits: {int(self.train_fraction * 100)}-{int(100 - self.train_fraction*100)}')
+              f'Train-Test splits: {int(self.train_fraction * 100)}-{int(self.test_fraction * 100)}')
         training_length = int(self.X.shape[0] * self.train_fraction)
         test_length = self.X.shape[0] - training_length
 
         assert training_length + test_length == self.X.shape[0]
+        splitter = StratifiedShuffleSplit(n_splits=1, test_size=self.test_fraction, random_state=0)
+        splits = splitter.split(self.X, self.single_label_array)
 
-        splits_indexes = self.generate_splits_indexes(training_length, test_length)
-        assert len(splits_indexes) == training_length + test_length
-        x_train = []
-        x_test = []
-        y_train = []
-        y_test = []
+        for train_index, test_index in splits:
+            print(f'TRAIN INDEX: {train_index}')
+            print(f'TEST INDEX: {test_index}')
 
-        for i in range(len(splits_indexes)):
-            if splits_indexes[i] != 0:  # test
-                x_test.append(self.X[i])
-                y_test.append(self.Y[i])
-            else:  # train
-                x_train.append(self.X[i])
-                y_train.append(self.Y[i])
+            # song-split level
+            x_train = self.X[train_index]
+            x_test = self.X[test_index]
+            y_train = self.Y[train_index]
+            y_test = self.Y[test_index]
+            # song level
+            train_labels = self.single_label_array[train_index]
+            test_labels = self.single_label_array[test_index]
+        print(f'X_train.shape {x_train.shape}')
+        print(f'X_test.shape: {x_test.shape}')
+        print(f'Y_train.shape {y_train.shape}')
+        print(f'Y_test.shape: {y_test.shape}')
+        print(f'train_labels.shape {train_labels.shape}')
+        print(f'test_labels.shape: {test_labels.shape}')
 
-        # reshaping
-        x_train = np.asarray(x_train).reshape(len(x_train), self.X.shape[1], self.X.shape[2])
-        x_test = np.asarray(x_test).reshape(len(x_test), self.X.shape[1], self.X.shape[2])
-        y_train = np.asarray(y_train).reshape(len(y_train), self.X.shape[1])
-        y_test = np.asarray(y_test).reshape(len(y_test), self.X.shape[1])
 
-        return x_train, y_train, x_test, y_test, splits_indexes
+
+        #check the emotion distribution between train and test (be sure test contains all emotions)
+        # check if test_labels contains all elements in train_labels
+        assert all(label in test_labels for label in train_labels)
+
+
+        return x_train, y_train, x_test, y_test, train_labels, test_labels
 
     # create an array with the same size of the dataset, containing 0 if the sample has to be picked for Train, 1 for Test
     def generate_splits_indexes(self, train_len, test_len):
@@ -131,8 +143,8 @@ class DatasetMusic2emotion:
 
     def get_shaped_dataset(self):
         # originally into CNN_BiGRU.__init__()
-        x_train = self.X_train.reshape(self.X_train.shape[0] * self.X_train.shape[1], 1, self.X_train.shape[2])
-        x_test = self.X_test.reshape(self.X_test.shape[0] * self.X_test.shape[1], 1, self.X_test.shape[2])
+        x_train = self.X_train.reshape(self.X_train.shape[0] * self.X_train.shape[1], self.X_train.shape[2], 1)
+        x_test = self.X_test.reshape(self.X_test.shape[0] * self.X_test.shape[1], self.X_test.shape[2], 1)
 
         y_train = self.Y_train.reshape(self.Y_train.shape[0] * self.Y_train.shape[1], 1)
         y_test = self.Y_test.reshape(self.Y_test.shape[0] * self.Y_test.shape[1], 1)

@@ -6,6 +6,7 @@ import pandas as pd
 import datetime
 import matplotlib.pyplot as plt
 import gc
+from sklearn.preprocessing import LabelEncoder
 print(f'****\tutils.py\t****\nUsing garbage collector with thresholds: {gc.get_threshold()}')
 
 save_files = False
@@ -347,24 +348,28 @@ def add_padding(audio_files, padding_length, boundary):
 
     return padded_songs, padded_songs_lengths
 
-
-# this function reads the csv and prepare labels to be fed into the Network
-def read_labels(labels_csv_path):
-    dataframe = pd.read_csv(labels_csv_path)
-    return dataframe
+def get_single_song_emo_label(song_labels_array):
+    label = np.bincount(song_labels_array).argmax()
+    # print(f'Most freq value: {label}')
+    return label
 
 
 # this function reads the DataFrame and create the appropriate data structure for labels
-def extract_labels(labels_df):
+def extract_labels(labels_csv_path):
+    dataframe = pd.read_csv(labels_csv_path)
     labels = []
     song_ids = []
-    for index, row in labels_df.iterrows():
+    single_label_array = []
+    for index, row in dataframe.iterrows():
         labels.append(row[1:])
+        single_label_array.append(get_single_song_emo_label(row[1:]))
         song_ids.append(row['song_id'])
     labels = np.asarray(labels)
     song_ids = np.asarray(song_ids)
-    print(f'{labels.shape} : {labels}')
-    return labels, song_ids
+    single_label_array = np.asarray(single_label_array)
+    # print(f'{labels.shape} : {labels}')
+    assert len(single_label_array) == len(song_ids) == labels.shape[0]
+    return labels, song_ids, single_label_array
 
 def save_preprocessed_audios(audio_raw_files, wav_filenames, directory_to_save):
     if not os.path.exists(directory_to_save):
