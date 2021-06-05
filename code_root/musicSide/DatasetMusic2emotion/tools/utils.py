@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import gc
 from sklearn.preprocessing import LabelEncoder
 print(f'****\tutils.py\t****\nUsing garbage collector with thresholds: {gc.get_threshold()}')
-
+runs_on = r'legion'
 save_files = False
 # some difines
 __SAMPLE_AT = 44100
@@ -32,10 +32,16 @@ def module_exists(module_name):
 
 
 def install_module(module):
-    try:
-        os.system(f'pip3 install {module}')
-    except OSError:
-        print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
+    if runs_on.__eq__('legion'):
+        try:
+            os.system(f'pip install {module} --user')
+        except OSError:
+            print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
+    else:
+        try:
+            os.system(f'pip3 install {module}')
+        except OSError:
+            print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
 
 
 try:
