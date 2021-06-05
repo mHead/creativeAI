@@ -21,7 +21,7 @@ class DatasetMusic2emotion:
         self.splits_done = False
         self.music_data_root = data_root
         self.wav_dir_relative = r'MusicEmo_dataset_raw_wav/clips_45seconds_wav'
-        self.wav_dir_relative_preprocessed = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG'
+        self.wav_dir_relative_preprocessed = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed'
         self.emotions_csv_path_relative = r'[labels]emotion_average_dataset_csv/music_emotions_labels.csv'
         self.emotions_csv_path = os.path.join(self.music_data_root, self.emotions_csv_path_relative)
         self.train_fraction = train_frac
