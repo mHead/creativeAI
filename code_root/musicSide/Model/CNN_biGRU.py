@@ -33,7 +33,7 @@ from keras.callbacks import ReduceLROnPlateau
 # from scipy import signal
 # from scipy.io import wavfile
 
-
+version2 = True
 # %% start global variables
 CNNHyperParams = {
     "kernel_size": 220,
@@ -43,10 +43,10 @@ CNNHyperParams = {
     "weight_decay": 1e-6,
     "momentum": 0.9
 }
-
-BiGRUParams = {
-    "n_units": 8
-}
+if version2:
+    BiGRUParams = {
+        "n_units": 8
+    }
 
 TrainingSettings = {
     "batch_size": 32,
@@ -123,7 +123,8 @@ class CNN_BiGRU:
         self.learning_rate = CNNHyperParams.get('learning_rate')
         self.weight_decay = CNNHyperParams.get('weight_decay')
         self.momentum = CNNHyperParams.get('momentum')
-        self.gru_units = BiGRUParams.get('n_units')
+        if version2:
+            self.gru_units = BiGRUParams.get('n_units')
 
         if load_model:
             if load_model_path[0] is not None and load_model_path[1] is not None:
@@ -142,6 +143,9 @@ class CNN_BiGRU:
                                           validation_data=(self.X_test, self.Y_test), callbacks=[self.callbacks_lrr,
                                                                                                  self.callbacks_mcp,
                                                                                                  self.lifecycle_callbacks])
+            # what to do at the end of the training having the history?
+            # Plot some values
+            self.print_training_history()
         if do_test:
             # prepare for testing
             self.compile_model(do_train, do_test)
@@ -235,7 +239,9 @@ class CNN_BiGRU:
         plt.ylabel('accuracy')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(self.save_dir+"model_accuracy.png")
         plt.show()
+
         return
 
     def print_loss(self):
@@ -245,8 +251,24 @@ class CNN_BiGRU:
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(self.save_dir+"model_loss.png")
         plt.show()
         return
+
+    def plot_traincurve(self):
+        plt.figure(figsize=(10,6))
+        plt.title("Training Curve")
+        plt.xlabel("Epoch")
+
+        for measure in self.history.keys():
+            color = PlotCSS.get(measure)
+            ln = len(self.history[measure])
+            plt.plot(range(1, ln+1), self.history[measure], color + '-', label=measure)
+        plt.legend(loc='upper left', scatterpoints=1, frameon=False)
+
+        plt.savefig(self.save_dir+"train_curve.png")
+        plt.show()
+
 
     def print_info(self):
         print(f'num_classes: {self.num_classes}')
@@ -273,16 +295,7 @@ class CNN_BiGRU:
 
         return is_trained, model
 
-    def plot_traincurve(self):
-        plt.figure(figsize=(10,6))
-        plt.title("Training Curve")
-        plt.xlabel("Epoch")
 
-        for measure in self.history.keys():
-            color = PlotCSS.get(measure)
-            ln = len(self.history[measure])
-            plt.plot(range(1, ln+1), self.history[measure], color + '-', label=measure)
-        plt.legend(loc='upper left', scatterpoints=1, frameon=False)
     # %% end utilities and class CNN_BiGRU
 
 # %% 3. Custom Callbacksù
