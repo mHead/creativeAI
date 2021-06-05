@@ -39,7 +39,7 @@ image_data_root = os.path.join(repo_root, r'imageSide_root_data')
 code_root = os.path.join(repo_root, r'code_root')
 save_dir_root = os.path.join(repo_root, r'saves_dir')
 
-if not os.exists(save_dir_root):
+if not os.path.exists(save_dir_root):
     os.mkdir(save_dir_root)
 
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
