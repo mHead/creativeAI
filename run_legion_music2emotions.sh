@@ -25,12 +25,13 @@ cd /home/mtesta/ || exit
 #dropbox_uploader.sh
 # %%
 # if exists remove repo and reclone updated
-rm -Rf creativeAI/
-git clone https://github.com/mHead/creativeAI.git
+#rm -Rf creativeAI/
+#git clone https://github.com/mHead/creativeAI.git
 
 echo "cloning creativeAI repository DONE!"
 echo "moving the dataset into the data_root inside the repository"
-cp /home/mtesta/data/clips_30seconds_preprocessed /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
+mkdir /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
+cp -R /home/mtesta/data/clips_30seconds_preprocessed /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
 cd ./creativeAI || exit
 chmod +x run_legion_music2emotions.sh
 
