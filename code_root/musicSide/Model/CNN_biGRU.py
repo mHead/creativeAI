@@ -70,10 +70,10 @@ SavingsPolicies = {
 }
 
 PlotCSS = {
-    'loss' : 'r',
-    'acc'  : 'b',
-    'val_loss' : 'm',
-    'val_acc' : 'g'
+    'loss': 'r',
+    'acc': 'b',
+    'val_loss': 'm',
+    'val_acc': 'g'
 }
 
 
