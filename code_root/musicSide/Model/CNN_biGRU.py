@@ -33,7 +33,7 @@ from keras.callbacks import ReduceLROnPlateau
 # from scipy import signal
 # from scipy.io import wavfile
 
-version2 = True
+version2 = False
 # %% start global variables
 CNNHyperParams = {
     "kernel_size": 220,
@@ -50,7 +50,7 @@ if version2:
 
 TrainingSettings = {
     "batch_size": 32,
-    "epochs": 1000,
+    "epochs": 50,
 
 }
 
@@ -168,10 +168,13 @@ class CNN_BiGRU:
 
         model.add(BatchNormalization())
         model.add(Dropout(0.25))
-        #model.add(TimeDistributed(Dense(16, activation=tf.nn.relu)))
-        model.add(Flatten())
+        if version2:
+            model.add(TimeDistributed(Dense(16, activation=tf.nn.relu)))
+        else:
+            model.add(Flatten())
         # Recurrent
-        #model.add(Bidirectional(GRU(self.gru_units, activation='tanh'), merge_mode='concat'))
+        if version2:
+            model.add(Bidirectional(GRU(self.gru_units, activation='tanh'), merge_mode='concat'))
         model.add(Dense(self.num_classes, activation='softmax'))
 
         return model
