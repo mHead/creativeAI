@@ -37,6 +37,8 @@ echo "installing modules"
 
 echo "pip install Tornado --user"
 pip install Tornado --user
+echo "pip install tensorflow --user"
+pip install tensorflow --user
 
 
 echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
