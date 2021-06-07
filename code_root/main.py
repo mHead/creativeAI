@@ -10,6 +10,7 @@ from musicSide.DatasetMusic2emotion.emoMusicPT import emoMusicPT
 from musicSide.Model.CNN_biGRU import CNN_BiGRU
 from musicSide.Model.TorchModel import TorchModel
 from musicSide.Model.Benchmark import Benchmark
+from sklearn.model_selection import StratifiedShuffleSplit
 
 
 argv = sys.argv[1:]
@@ -22,8 +23,8 @@ pick_repo = False
 run_config = ''
 save_csv_path = r''
 #main config
-keras_ = False
-pytorch_ = True
+keras_ = True
+pytorch_ = False
 for arg in argv:
     if pick_repo:
         repo_root = arg
@@ -46,7 +47,7 @@ image_data_root = os.path.join(repo_root, r'imageSide_root_data')
 code_root = os.path.join(repo_root, r'code_root')
 save_dir_root = os.path.join(repo_root, r'saves_dir')
 
-music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed')
+music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
 
 if not os.path.exists(save_dir_root):
     os.mkdir(save_dir_root)
@@ -87,19 +88,19 @@ if __name__ == '__main__':
     # %%
 
     # %% Keras Main
-    #if keras_:
-        #b = Benchmark("keras_dataset_timer")
-        #b.start_timer()
-        #music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9, run_config=run_config, preprocess=False)
-       # print(f'Hey I am: {music2emotion_Dataset}')
-        #b.end_timer()
+    if keras_:
+        b = Benchmark("keras_dataset_timer")
+        b.start_timer()
+        music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9, run_config=run_config, preprocess=False)
+        print(f'Hey I am: {music2emotion_Dataset}')
+        b.end_timer()
 
-       # b = Benchmark("keras_model_timer")
-       # b.start_timer()
-       # music2emotion_Model = CNN_BiGRU(music2emotion_Dataset, save_dir=save_dir_root, do_train=True, do_test=False,
-                                       # load_model=False, load_model_path=(None, None))
+        b = Benchmark("keras_model_timer")
+        b.start_timer()
+        music2emotion_Model = CNN_BiGRU(music2emotion_Dataset, save_dir=save_dir_root, do_train=True, do_test=False,
+                                        load_model=False, load_model_path=(None, None))
 
-       # b.end_timer()
+        b.end_timer()
     # %%
 
     # %% PyTorch Main
@@ -107,9 +108,18 @@ if __name__ == '__main__':
         b = Benchmark("pytorch_dataset_timer")
         b.start_timer()
         pytorch_dataset = emoMusicPT(dataset_root=music_dataset_path)
+        print(f'\n***** emoMusicPT created *****\n\n')
         sample_idx = 120 #slice_no
         sample, song_id, label, label_coord = pytorch_dataset.__getitem__(sample_idx)
-        print(label_coord)
+
+        test_frac = 0.1
+        train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
+
+        #train_dl = DataLoader(train_indexes, batch_size=32, shuffle=True)
+        #test_dl = DataLoader(test_indexes, batch_size=32, shuffle=True)
+
+
+
         b.end_timer()
 
         #b = Benchmark("pytorch_model_timer")

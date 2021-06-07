@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import torchaudio
 from torch.utils.data import Dataset
+from sklearn.model_selection import StratifiedShuffleSplit
+import re
 import os
 import pandas as pd
 legion = False
@@ -16,7 +18,7 @@ else:
     _REPO_ROOT = r'/Users/head/Documents/GitHub/creativeAI'
 
 _MUSIC_DATA_ROOT = r'musicSide_root_data'
-_WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed'
+_WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG'
 
 _N_SLICES_PER_SONG = 61
 _SLICE_SIZE = 22050
@@ -38,6 +40,13 @@ class emoMusicPT(Dataset):
         self.song_id_emotions_labels_frame = pd.read_csv(self.song_id_emotions_csv_path)
         self.num_classes = _N_CLASSES
 
+        wav_filenames = [f for f in os.listdir(self.audio_path) if not f.startswith('.')]
+        wav_filenames.sort(key=lambda f: int(re.sub('\D', '', f)))
+        self.wav_filenames = wav_filenames
+        self.single_label_per_song_frame = pd.read_csv(self.song_id_dominant_emotion_csv_path)
+        self.song_level_labels = self.single_label_per_song_frame.loc[:, 'emotion_label']
+
+
 
     def print_metadata(self, _metadata, src=None):
         if src:
@@ -52,7 +61,9 @@ class emoMusicPT(Dataset):
         print()
 
     def __len__(self):
-        return len(self.X)
+        nsongs = os.listdir(self.audio_path)
+        self.len = nsongs * _N_SLICES_PER_SONG
+        return self.len
 
     def __getitem__(self, n):
         """
@@ -104,3 +115,15 @@ class emoMusicPT(Dataset):
 
         del filename, waveform, waveform_array, wave_trimmed, _waveform, filename_path, start_offset, end_offset
         return _wav_slice, song_id, emotion_label, {'song_id': row_id, 'slice_no': col_id, 'sample_index': n}
+
+    def stratified_song_level_split(self, test_fraction):
+        splitter = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=0)
+        splits = splitter.split(self.wav_filenames, self.song_level_labels)
+
+        for train_index, test_index in splits:
+            print(f'TRAIN INDEX: {train_index} type: {type(train_index)} shape: {train_index.shape}')
+            print(f'TEST INDEX: {test_index} type: {type(test_index)} shape: {test_index.shape}')
+
+        return train_index, test_index
+
+

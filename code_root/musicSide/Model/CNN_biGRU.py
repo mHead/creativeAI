@@ -51,7 +51,7 @@ if version2:
 
 TrainingSettings = {
     "batch_size": 32,
-    "epochs": 1000,
+    "epochs": 200,
 
 }
 
@@ -134,7 +134,7 @@ class CNN_BiGRU:
             if load_model_path[0] is not None and load_model_path[1] is not None:
                 self.isTrained, self.model = self.load_model_and_weights(load_model_path)
         else:
-            self.model = self.create_model('CNN_BiGRU')
+            self.model = self.create_model('CNN_BiGRU_v2')
             print(f'Model created!\ntype:{type(self.model)}\n')
             self.print_info()
             self.compile_model(do_train, do_test)
