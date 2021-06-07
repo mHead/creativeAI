@@ -1,10 +1,16 @@
 import os
 import sys
+# utils
 from musicSide.DatasetMusic2emotion.tools import va2emotion as va2emo
 from musicSide.DatasetMusic2emotion.tools import utils as u
+# Datasets
 from musicSide.DatasetMusic2emotion.DatasetMusic2emotion import DatasetMusic2emotion
+from musicSide.DatasetMusic2emotion.emoMusicPT import emoMusicPT
+# Models
 from musicSide.Model.CNN_biGRU import CNN_BiGRU
+from musicSide.Model.TorchModel import TorchModel
 from musicSide.Model.Benchmark import Benchmark
+
 
 argv = sys.argv[1:]
 print(f'argv: {argv}')
@@ -13,10 +19,11 @@ repo_root = r''
 verbose = False
 generate_csv = False
 pick_repo = False
-
 run_config = ''
 save_csv_path = r''
-
+#main config
+keras_ = False
+pytorch_ = True
 for arg in argv:
     if pick_repo:
         repo_root = arg
@@ -38,6 +45,8 @@ music_data_root = os.path.join(repo_root, r'musicSide_root_data')
 image_data_root = os.path.join(repo_root, r'imageSide_root_data')
 code_root = os.path.join(repo_root, r'code_root')
 save_dir_root = os.path.join(repo_root, r'saves_dir')
+
+music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed')
 
 if not os.path.exists(save_dir_root):
     os.mkdir(save_dir_root)
@@ -76,20 +85,37 @@ if __name__ == '__main__':
                 print(f'\n\n>>The file {save_music_emo_csv_path} already exists\n\n')
                 u.getCSV_info(save_music_emo_csv_path)
     # %%
-    # %% create Dataset Object
-    b = Benchmark("dataset_timer")
-    b.start_timer()
-    music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9, run_config=run_config, preprocess=False)
-    print(f'Hey I am: {music2emotion_Dataset}')
-    b.end_timer()
+
+    # %% Keras Main
+    #if keras_:
+        #b = Benchmark("keras_dataset_timer")
+        #b.start_timer()
+        #music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9, run_config=run_config, preprocess=False)
+       # print(f'Hey I am: {music2emotion_Dataset}')
+        #b.end_timer()
+
+       # b = Benchmark("keras_model_timer")
+       # b.start_timer()
+       # music2emotion_Model = CNN_BiGRU(music2emotion_Dataset, save_dir=save_dir_root, do_train=True, do_test=False,
+                                       # load_model=False, load_model_path=(None, None))
+
+       # b.end_timer()
     # %%
 
-    # %% instantiate model passing the dataset
-    b = Benchmark("model_timer")
-    b.start_timer()
-    music2emotion_Model = CNN_BiGRU(music2emotion_Dataset, save_dir=save_dir_root, do_train=True, do_test=False,
-                                    load_model=False, load_model_path=(None, None))
-    b.end_timer()
-    # %%
+    # %% PyTorch Main
+    if pytorch_:
+        b = Benchmark("pytorch_dataset_timer")
+        b.start_timer()
+        pytorch_dataset = emoMusicPT(dataset_root=music_dataset_path)
+        sample_idx = 120 #slice_no
+        sample, song_id, label = pytorch_dataset.__getitem__(sample_idx)
+        b.end_timer()
 
+        #b = Benchmark("pytorch_model_timer")
+        #first_model = TorchModel(pytorch_dataset, save_dir_root=save_dir_root)
+        #first_model.train()
+        #b.end_timer()
+        #first_model.print_statistics()
+        #first_model.test()
+    # %%
     sys.exit(0)

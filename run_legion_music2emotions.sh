@@ -30,8 +30,15 @@ cd /home/mtesta/ || exit
 
 echo "cloning creativeAI repository DONE!"
 echo "moving the dataset into the data_root inside the repository"
-mkdir /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
-cp -R /home/mtesta/data/clips_30seconds_preprocessed /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
+mkdir -p /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
+
+if [ -z "$(ls -A /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav)" ]; then
+  echo "The folder: creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav is empty... going to move the dataset into the data_root inside the repository"
+  cp -R /home/mtesta/data/clips_30seconds_preprocessed /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
+else
+  echo "The raw files are already inside the repo path"
+fi
+
 cd ./creativeAI || exit
 chmod +x run_legion_music2emotions.sh
 
@@ -50,7 +57,7 @@ echo "pip install ffmpeg --user"
 pip install ffmpeg --user
 echo "pip install torch --user"
 pip install torch --user
-pip install torchvision --user
+pip install torchaudio --user
 
 echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
 

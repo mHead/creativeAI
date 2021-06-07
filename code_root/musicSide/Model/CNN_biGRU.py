@@ -9,6 +9,8 @@ from datetime import datetime
 import tensorflow as tf
 import keras
 
+print(f'Num GPUs available: {len(tf.config.list_physical_devices("GPU"))}')
+
 from keras.models import Sequential
 from keras.models import model_from_json
 
@@ -23,7 +25,6 @@ from keras import optimizers
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import ReduceLROnPlateau
 
-
 # from sklearn.metrics import confusion_matrix
 # from sklearn.preprocessing import LabelEncoder
 # from sklearn.model_selection import train_test_split
@@ -33,7 +34,7 @@ from keras.callbacks import ReduceLROnPlateau
 # from scipy import signal
 # from scipy.io import wavfile
 
-version2 = False
+version2 = True
 # %% start global variables
 CNNHyperParams = {
     "kernel_size": 220,
@@ -50,7 +51,7 @@ if version2:
 
 TrainingSettings = {
     "batch_size": 32,
-    "epochs": 50,
+    "epochs": 1000,
 
 }
 
@@ -72,9 +73,10 @@ SavingsPolicies = {
 
 PlotCSS = {
     'loss': 'r',
-    'acc': 'b',
+    'categorical_accuracy': 'b',
     'val_loss': 'm',
-    'val_acc': 'g'
+    'val_categorical_accuracy': 'g',
+    'lr': 'o'
 }
 
 
@@ -84,7 +86,10 @@ PlotCSS = {
 class CNN_BiGRU:
     def __init__(self, emo_music_dataset_object: DatasetMusic2emotion, save_dir, do_train=True,
                  do_test=False, load_model=False, load_model_path=(None, None), **kwargs):
-
+        if version2:
+            self.name = 'CNN_biGRU'
+        else:
+            self.name = 'CNN_1D'
         self.save_dir = save_dir
         self.dataset = emo_music_dataset_object
         self.num_classes = self.dataset.num_classes
@@ -98,7 +103,6 @@ class CNN_BiGRU:
         # self.Y_train = self.dataset.Y_train.reshape(self.dataset.Y_train.shape[0] * self.dataset.Y_train.shape[1], 1)
         # self.Y_test = self.dataset.Y_test.reshape(self.dataset.Y_test.shape[0] * self.dataset.Y_test.shape[1], 1)
 
-
         # Following documentation: inputs are 128-length vectors with 12 timestemps, batch size is 5
         # The inputs are 128-length vectors with 12 timesteps, and the batch size is 5.
         # input_shape = (5, 12, 128)
@@ -106,10 +110,10 @@ class CNN_BiGRU:
         # y = tf.keras.layers.Conv1D(32, 3, activation='relu',input_shape=input_shape[1:])(x)
         # print(y.shape) --> out: (5, 10, 32)
 
-        #self.X_train = self.dataset.X_train.reshape(self.dataset.X_train.shape[0] * self.dataset.X_train.shape[1], 1, self.dataset.X_train.shape[2])
-        #self.X_test = self.dataset.X_test.reshape(self.dataset.X_test.shape[0] * self.dataset.X_test.shape[1], 1, self.dataset.X_test.shape[2])
-        #self.Y_train = self.dataset.Y_train.reshape(self.dataset.Y_train.shape[0] * self.dataset.Y_train.shape[1], 1)
-        #self.Y_test = self.dataset.Y_test.reshape(self.dataset.Y_test.shape[0] * self.dataset.Y_test.shape[1], 1)
+        # self.X_train = self.dataset.X_train.reshape(self.dataset.X_train.shape[0] * self.dataset.X_train.shape[1], 1, self.dataset.X_train.shape[2])
+        # self.X_test = self.dataset.X_test.reshape(self.dataset.X_test.shape[0] * self.dataset.X_test.shape[1], 1, self.dataset.X_test.shape[2])
+        # self.Y_train = self.dataset.Y_train.reshape(self.dataset.Y_train.shape[0] * self.dataset.Y_train.shape[1], 1)
+        # self.Y_test = self.dataset.Y_test.reshape(self.dataset.Y_test.shape[0] * self.dataset.Y_test.shape[1], 1)
 
         self.X_train, self.X_test, self.Y_train, self.Y_test = self.dataset.get_shaped_dataset()
 
@@ -138,11 +142,8 @@ class CNN_BiGRU:
         if do_train:
             # prepare for training
             self.callbacks_lrr, self.callbacks_mcp, self.lifecycle_callbacks = self.create_callbacks(True, True)
-            print(f'Calling model.fit()')
-            self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.batch_size, epochs=self.epochs,
-                                          validation_data=(self.X_test, self.Y_test), callbacks=[self.callbacks_lrr,
-                                                                                                 self.callbacks_mcp,
-                                                                                                 self.lifecycle_callbacks])
+            self.history = self.train_model()
+
             # what to do at the end of the training having the history?
             # Plot some values
             self.print_training_history()
@@ -156,6 +157,7 @@ class CNN_BiGRU:
     # %% 0. end Model definition
 
     # %% 1. Model methods
+
     def create_model(self, _name):
         model = Sequential(name=_name)
 
@@ -181,7 +183,8 @@ class CNN_BiGRU:
 
     def compile_model(self, train, test):
 
-        _optimizer = keras.optimizers.adam_v2.Adam(learning_rate=self.learning_rate, beta_1=0.9, beta_2=0.99, amsgrad=False)
+        _optimizer = keras.optimizers.adam_v2.Adam(learning_rate=self.learning_rate, beta_1=0.9, beta_2=0.99,
+                                                   amsgrad=False)
 
         if test:
             self.model.compile(optimizer=_optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
@@ -194,6 +197,17 @@ class CNN_BiGRU:
             print(f'Model summary:\n{self.model.summary()}')
         else:
             print(f'The model did not compiled due to ambiguous train/test intent\ntrain: {train}\ntest: {test}\n')
+
+    def train_model(self):
+
+        print(f'Calling model.fit()')
+        history = self.model.fit(
+                                 self.X_train, self.Y_train, batch_size=self.batch_size, epochs=self.epochs,
+                                 validation_data=(self.X_test, self.Y_test), callbacks=[self.callbacks_lrr,
+                                                                                        self.callbacks_mcp,
+                                                                                        self.lifecycle_callbacks]
+                                )
+        return history
 
     def make_prediction(self):
         _preds = self.model.predict(self.X_test, batch_size=TrainingSettings.get('batch_size'), verbose=1)
@@ -215,10 +229,11 @@ class CNN_BiGRU:
             lr_reduce_ = ReduceLROnPlateau(monitor=TrainingPolicies.get('monitor'),
                                            factor=TrainingPolicies.get('factor'),
                                            patience=TrainingPolicies.get('patience'),
-                                           min_lr=TrainingPolicies.get('min_lr'), verbose=TrainingPolicies.get('verbose'))
+                                           min_lr=TrainingPolicies.get('min_lr'),
+                                           verbose=TrainingPolicies.get('verbose'))
 
         if model_checkpoint:
-            save_model = ModelCheckpoint(os.path.join(self.save_dir, 'best_models/conv1D_BN_D_TDFC_biGRU_FC.h5'),
+            save_model = ModelCheckpoint(os.path.join(self.save_dir, 'best_models/'+f'_{self.name}.h5'),
                                          save_best_only=True, monitor=SavingsPolicies.get('monitor'),
                                          mode=SavingsPolicies.get('mode'))
 
@@ -243,9 +258,9 @@ class CNN_BiGRU:
         plt.ylabel('accuracy')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
-        print(f'Saving..... Accuracy Graph\tto {self.save_dir+"model_accuracy.png"}\n')
-        plt.savefig(self.save_dir+"model_accuracy.png")
-        #plt.show()
+        print(f'Saving..... Accuracy Graph\tto {self.save_dir + "model_accuracy.png"}\n')
+        plt.savefig(self.save_dir + f"/{self.name}+model_accuracy.png")
+        # plt.show()
 
         return
 
@@ -256,31 +271,32 @@ class CNN_BiGRU:
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
-        print(f'Saving..... Loss Graph\tto {self.save_dir+"model_loss.png"}\n')
-        plt.savefig(self.save_dir+"model_loss.png")
-        #plt.show()
+        print(f'Saving..... Loss Graph\tto {self.save_dir + "/model_loss.png"}\n')
+        plt.savefig(self.save_dir + f"/{self.name}+model_loss.png")
+        # plt.show()
         return
 
     def plot_traincurve(self):
-        plt.figure(figsize=(10,6))
+        plt.figure(figsize=(10, 6))
         plt.title("Training Curve")
         plt.xlabel("Epoch")
 
-        for measure in self.history.keys():
+        for measure in self.history.history.keys():
             color = PlotCSS.get(measure)
-            ln = len(self.history[measure])
-            plt.plot(range(1, ln+1), self.history[measure], color + '-', label=measure)
+            ln = len(self.history.history[measure])
+            plt.plot(range(1, ln + 1), self.history.history[measure], color + '-', label=measure)
         plt.legend(loc='upper left', scatterpoints=1, frameon=False)
-        print(f'Saving..... Train Curve\tto {self.save_dir+"train_curve.png"}\n')
-        plt.savefig(self.save_dir+"train_curve.png")
-        #plt.show()
+        print(f'Saving..... Train Curve\tto {self.save_dir + "train_curve.png"}\n')
+        plt.savefig(self.save_dir + f"/{self.name}+train_curve.png")
+        # plt.show()
         return
-
 
     def print_info(self):
         print(f'num_classes: {self.num_classes}')
         print(f'input_shape: {self.input_shape_conv1d}')
-        print(f' - Model.X_train shape: {self.X_train.shape}\n - Model.X_test shape: {self.X_test.shape}\n - Model.Y_train shape:{self.Y_train.shape}\n - Model.Y_test shape: {self.Y_test.shape}\n')
+        print(
+            f' - Model.X_train shape: {self.X_train.shape}\n - Model.X_test shape: {self.X_test.shape}\n - Model.Y_train shape:{self.Y_train.shape}\n - Model.Y_test shape: {self.Y_test.shape}\n')
+
     # %% end Print methods
 
     # %% 3. IO
@@ -302,8 +318,8 @@ class CNN_BiGRU:
 
         return is_trained, model
 
-
     # %% end utilities and class CNN_BiGRU
+
 
 # %% 3. Custom Callbacksù
 
@@ -348,29 +364,29 @@ class CustomCallback(keras.callbacks.Callback):
         keys = list(logs.keys())
         print("Stop predicting; got log keys: {}".format(keys))
 
-    #def on_train_batch_begin(self, batch, logs=None):
-        #keys = list(logs.keys())
-        #print("...Training: start of batch {}; got log keys: {}".format(batch, keys))
+    # def on_train_batch_begin(self, batch, logs=None):
+    # keys = list(logs.keys())
+    # print("...Training: start of batch {}; got log keys: {}".format(batch, keys))
 
-    #def on_train_batch_end(self, batch, logs=None):
-        #keys = list(logs.keys())
-        #print("...Training: end of batch {}; got log keys: {}".format(batch, keys))
-        #print(f'\t**additional info: for batch {batch}, loss is: {logs["loss"]}')
+    # def on_train_batch_end(self, batch, logs=None):
+    # keys = list(logs.keys())
+    # print("...Training: end of batch {}; got log keys: {}".format(batch, keys))
+    # print(f'\t**additional info: for batch {batch}, loss is: {logs["loss"]}')
 
-    #def on_test_batch_begin(self, batch, logs=None):
-        #keys = list(logs.keys())
-        #print("...Evaluating: start of batch {}; got log keys: {}".format(batch, keys))
+    # def on_test_batch_begin(self, batch, logs=None):
+    # keys = list(logs.keys())
+    # print("...Evaluating: start of batch {}; got log keys: {}".format(batch, keys))
 
-    #def on_test_batch_end(self, batch, logs=None):
-        #keys = list(logs.keys())
-        #print("...Evaluating: end of batch {}; got log keys: {}".format(batch, keys))
-        #print(f'\t**additional info: for batch {batch}, loss is: {logs["loss"]}')
+    # def on_test_batch_end(self, batch, logs=None):
+    # keys = list(logs.keys())
+    # print("...Evaluating: end of batch {}; got log keys: {}".format(batch, keys))
+    # print(f'\t**additional info: for batch {batch}, loss is: {logs["loss"]}')
 
-    #def on_predict_batch_begin(self, batch, logs=None):
-        #keys = list(logs.keys())
-        #print("...Predicting: start of batch {}; got log keys: {}".format(batch, keys))
+    # def on_predict_batch_begin(self, batch, logs=None):
+    # keys = list(logs.keys())
+    # print("...Predicting: start of batch {}; got log keys: {}".format(batch, keys))
 
-    #def on_predict_batch_end(self, batch, logs=None):
-        #keys = list(logs.keys())
-        #print("...Predicting: end of batch {}; got log keys: {}".format(batch, keys))
+    # def on_predict_batch_end(self, batch, logs=None):
+    # keys = list(logs.keys())
+    # print("...Predicting: end of batch {}; got log keys: {}".format(batch, keys))
 # %% end CustomCallbacks

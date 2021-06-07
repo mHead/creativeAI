@@ -8,7 +8,7 @@ source_csv_path = r'/Users/head/Documents/GitHub/creativeAI/musicSide_root_data/
 dst_csv_path = r'/Users/head/Documents/GitHub/creativeAI/musicSide_root_data/[labels]emotion_average_dataset_csv/music_single_emotion_labels.csv'
 
 labels = ['amusement', 'awe', 'contentment', 'excitement', 'anger', 'disgust', 'fear', 'sadness'] # 8: there is no something-else
-colors = ['#\t', '#FFFF00', '#87CEEB', '#DC143C', '#000080', '#F0E68C', '#C0C0C0', '#696969', '#228B22']
+colors = ['#EE82EE', '#FFFF00', '#87CEEB', '#DC143C', '#000080', '#F0E68C', '#C0C0C0', '#696969', '#228B22']
 
 
 def _max(occ):
@@ -162,11 +162,11 @@ def add_labels_to_bars(ax, spacing=5):
 
 # TODO: def plot_dataset_color_spectrum(dataset_emotions_occurrences):
 
-percentage_array(global_emotions_occurrences)
+#percentage_array(global_emotions_occurrences)
 
-plot_emotion_distribution_pie_chart(labels, percentages)
+#plot_emotion_distribution_pie_chart(labels, percentages)
 # plot_emotion_distribution_bar_chart(labels, percentages)
 
 #plot_dataset_emotion_distribution_frequencies_bar_chart(labels, global_emotions_occurrences)
 
-#write_dict_to_csv()
+write_dict_to_csv()
