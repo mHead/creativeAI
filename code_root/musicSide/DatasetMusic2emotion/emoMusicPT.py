@@ -54,13 +54,21 @@ class emoMusicPT(Dataset):
     def __len__(self):
         return len(self.X)
 
-
-    '''
-    loads the single sample (considered as a slice of 500ms)
-    returns 500ms_data, song_id, slice_no, emotion
-    '''
     def __getitem__(self, n):
+        """
+        loads the single sample (considered as a slice of 500ms)
+        returns wav_slice, song_id, emotion_int, dictionary {'song_id', 'slice_no', 'sample_index'}
 
+        the dictionary will holds row_id, col_id as the coordinates to navigate the big dataframe containing
+        col:    0           1                       61
+        row: song_id | sample_1500ms | ... | sample_45000ms
+        0       2           7           ..          7
+        1       3           7           ..          7
+        ..      ..          ..          ..          ..
+
+        wav_slice is the (row_id, col_id) corresponding torch.Tensor with shape (1, 22050).
+
+        """
         assert len(self.song_id_emotions_labels_frame) * _N_SLICES_PER_SONG > n >= 0
 
         row_id = n // _N_SLICES_PER_SONG                # song_id_idx
@@ -78,7 +86,7 @@ class emoMusicPT(Dataset):
         # now read audio associated
         filename = str(song_id)+'.wav'
         filename_path = os.path.join(self.audio_path, filename)
-        _waveform = None
+        _wav_slice = None
         if os.path.exists(filename_path):
             metadata = torchaudio.info(filename_path)
             if verbose:
@@ -89,9 +97,10 @@ class emoMusicPT(Dataset):
             waveform_array = waveform.detach().numpy()
             wave_trimmed = waveform_array[0][start_offset:end_offset]
             _waveform = torch.from_numpy(wave_trimmed)
-            print(f'AFTER SAMPLE EXTRACTION: type of waveform: {type(waveform)} {waveform.shape}')
+            _wav_slice = torch.reshape(_waveform, shape=(1, _SLICE_SIZE))
+            print(f'AFTER SAMPLE EXTRACTION: type of waveform: {type(_wav_slice)} {_wav_slice.shape}')
         else:
             print(f'The file at {filename_path} does not exist')
 
-        del filename, waveform, waveform_array, wave_trimmed
-        return _waveform, song_id, emotion_label
+        del filename, waveform, waveform_array, wave_trimmed, _waveform, filename_path, start_offset, end_offset
+        return _wav_slice, song_id, emotion_label, {'song_id': row_id, 'slice_no': col_id, 'sample_index': n}

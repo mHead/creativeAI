@@ -108,7 +108,8 @@ if __name__ == '__main__':
         b.start_timer()
         pytorch_dataset = emoMusicPT(dataset_root=music_dataset_path)
         sample_idx = 120 #slice_no
-        sample, song_id, label = pytorch_dataset.__getitem__(sample_idx)
+        sample, song_id, label, label_coord = pytorch_dataset.__getitem__(sample_idx)
+        print(label_coord)
         b.end_timer()
 
         #b = Benchmark("pytorch_model_timer")
