@@ -7,7 +7,8 @@ import datetime
 import matplotlib.pyplot as plt
 import gc
 from sklearn.preprocessing import LabelEncoder
-print(f'****\tutils.py\t****\nUsing garbage collector with thresholds: {gc.get_threshold()}')
+print(f'****\tmusicSide.DatasetMusic2emotion.tools.utils.py imported\t****\n'
+      f'Using garbage collector with thresholds: {gc.get_threshold()}\n')
 runs_on = r'legion'
 save_files = False
 # some difines

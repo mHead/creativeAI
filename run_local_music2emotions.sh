@@ -9,5 +9,5 @@ cd code_root/ || exit
 echo "calling ${code}, with repo_root: ${repo_root_local}"
 
 
-python3 ${code} --verbose --repo_root ${repo_root_local}
+python3 ${code} -v -pt -r ${repo_root_local}
 

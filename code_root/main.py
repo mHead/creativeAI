@@ -11,10 +11,23 @@ from musicSide.Model.CNN_biGRU import CNN_BiGRU
 from musicSide.Model.TorchModel import TorchModel
 from musicSide.Model.Benchmark import Benchmark
 from sklearn.model_selection import StratifiedShuffleSplit
+# %% Using ArgumentParser
+#import argparse
 
+#parser = argparse.ArgumentParser(description='main arguments')
+#parser.add_argument('-v', '--verbose', nargs='?', default=False, help='Run the program in verbose mode')
 
+#parser.add_argument('-tf', '--tensorflow', dest='Tensorflow', type=str, help='Run the program with Tensorflow backend and Keras frontend')
+#parser.add_argument('-pt', '--pytorch', dest='PyTorch', type=str, help='Run the program with PyTorch')
+
+#parser.add_argument('-r', '--repo_root', dest='repo_root',  type=str, help='It must be followed by the repo root path')
+
+#args = parser.parse_args()
+#print(args)
+# %%
+print(sys.argv)
 argv = sys.argv[1:]
-print(f'argv: {argv}')
+print(f'[main.py] argv: {argv} type: {type(argv)}')
 
 repo_root = r''
 verbose = False
@@ -23,8 +36,10 @@ pick_repo = False
 run_config = ''
 save_csv_path = r''
 #main config
-keras_ = True
-pytorch_ = False
+
+keras_ = False
+pytorch_ = True
+
 for arg in argv:
     if pick_repo:
         repo_root = arg
@@ -58,9 +73,9 @@ save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_la
 if __name__ == '__main__':
 
     if verbose:
-        print(f'Starting main with: {music_data_root} as the root for music data\n'
+        print(f'\n\n\nStarting main with: {music_data_root} as the root for music data\n'
               f'{image_data_root} as the root for image data\n'
-              f'{code_root} as the root for code')
+              f'{code_root} as the root for code\n\n\n')
 
     if verbose:
         print(f'Checking existence of {music_labels_csv_root}'
@@ -107,16 +122,30 @@ if __name__ == '__main__':
     if pytorch_:
         b = Benchmark("pytorch_dataset_timer")
         b.start_timer()
-        pytorch_dataset = emoMusicPT(dataset_root=music_dataset_path)
-        print(f'\n***** emoMusicPT created *****\n\n')
-        sample_idx = 120 #slice_no
-        sample, song_id, label, label_coord = pytorch_dataset.__getitem__(sample_idx)
+        pytorch_dataset = emoMusicPT(dataset_root=music_dataset_path, slice_mode=False)
+        print(f'\n***** main: emoMusicPT created *****\n\n')
+
+        sample_idx = 61
+
+        if not pytorch_dataset.slice_mode:
+            assert pytorch_dataset.__len__() == 744
+            assert pytorch_dataset.__len__() > sample_idx >= 0
+        else:
+            assert pytorch_dataset.__len__() == 744 * 61
+            assert pytorch_dataset.__len__() > sample_idx >= 0
+
+        sample, song_id, filename, label, label_coord = pytorch_dataset.__getitem__(sample_idx)
+
+        print(f'sample : {sample_idx} in [0-{pytorch_dataset.__len__() - 1}] is in filename: {filename} song_id: {song_id} with label: {label} and label_coordinates in DataFrame: {label_coord}\n')
+        print(f'data:\n\t{sample}\n'
+              f'type sample: {type(sample)}\t'
+              f'type label: {type(label)}')
 
         test_frac = 0.1
         train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
 
-        #train_dl = DataLoader(train_indexes, batch_size=32, shuffle=True)
-        #test_dl = DataLoader(test_indexes, batch_size=32, shuffle=True)
+        #train_dl = DataLoader(train_indexes, batch_size=32, shuffle=False)
+        #test_dl = DataLoader(test_indexes, batch_size=32, shuffle=False)
 
 
 

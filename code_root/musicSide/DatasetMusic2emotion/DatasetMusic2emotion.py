@@ -8,6 +8,8 @@ from sklearn.preprocessing import LabelEncoder
 from collections import Counter
 from ..DatasetMusic2emotion.tools import utils as u
 
+print('****\t DatasetMusic2emotion imported\t****')
+
 
 class DatasetMusic2emotion:
     """This is the dataset wrapper class
