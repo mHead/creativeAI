@@ -5,12 +5,14 @@ from musicSide.DatasetMusic2emotion.tools import va2emotion as va2emo
 from musicSide.DatasetMusic2emotion.tools import utils as u
 # Datasets
 from musicSide.DatasetMusic2emotion.DatasetMusic2emotion import DatasetMusic2emotion
-from musicSide.DatasetMusic2emotion.emoMusicPT import emoMusicPT
+from musicSide.DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusicPTDataLoader, emoMusicPTSubset
 # Models
 from musicSide.Model.CNN_biGRU import CNN_BiGRU
 from musicSide.Model.TorchModel import TorchModel
 from musicSide.Model.Benchmark import Benchmark
 from sklearn.model_selection import StratifiedShuffleSplit
+import torch
+from torch.utils.data import Subset
 # %% Using ArgumentParser
 #import argparse
 
@@ -122,37 +124,26 @@ if __name__ == '__main__':
     if pytorch_:
         b = Benchmark("pytorch_dataset_timer")
         b.start_timer()
-        pytorch_dataset = emoMusicPT(dataset_root=music_dataset_path, slice_mode=False)
+        # Create the Dataset Object
+        pytorch_dataset = emoMusicPTDataset(dataset_root=music_dataset_path, slice_mode=True)
         print(f'\n***** main: emoMusicPT created *****\n\n')
-
-        sample_idx = 61
-
-        if not pytorch_dataset.slice_mode:
-            assert pytorch_dataset.__len__() == 744
-            assert pytorch_dataset.__len__() > sample_idx >= 0
-        else:
-            assert pytorch_dataset.__len__() == 744 * 61
-            assert pytorch_dataset.__len__() > sample_idx >= 0
-
-        sample, song_id, filename, label, label_coord = pytorch_dataset.__getitem__(sample_idx)
-
-        print(f'sample : {sample_idx} in [0-{pytorch_dataset.__len__() - 1}] is in filename: {filename} song_id: {song_id} with label: {label} and label_coordinates in DataFrame: {label_coord}\n')
-        print(f'data:\n\t{sample}\n'
-              f'type sample: {type(sample)}\t'
-              f'type label: {type(label)}')
-
+        # Make Train/Test splits indexes (at song level) -> maintain the order inside the song
         test_frac = 0.1
         train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
+        print(f'type train_indexes {type(train_indexes)}\ntype test_indexes {type(test_indexes)}')
+        # Defines Dataloaders
+        train_set = emoMusicPTSubset(pytorch_dataset, train_indexes)
+        test_set = emoMusicPTSubset(pytorch_dataset, test_indexes)
+        print(f'\n***** main: emoMusicPTSubset for train/test created *****\n\n')
 
-        #train_dl = DataLoader(train_indexes, batch_size=32, shuffle=False)
-        #test_dl = DataLoader(test_indexes, batch_size=32, shuffle=False)
-
-
-
+        train_DataLoader = emoMusicPTDataLoader(train_set, batch_size=32, shuffle=False, num_workers=1)
+        test_DataLoader = emoMusicPTDataLoader(test_set, batch_size=32, shuffle=False, num_workers=1)
+        print(f'\n***** main: emoMusicPTDataLoader for train/test created *****\n\n')
         b.end_timer()
 
-        #b = Benchmark("pytorch_model_timer")
-        #first_model = TorchModel(pytorch_dataset, save_dir_root=save_dir_root)
+        b = Benchmark("pytorch_model_timer")
+        first_model = TorchModel(train_DataLoader, test_DataLoader, save_dir_root=save_dir_root, n_classes=pytorch_dataset.num_classes)
+        #first_model.compile()
         #first_model.train()
         #b.end_timer()
         #first_model.print_statistics()

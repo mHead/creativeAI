@@ -8,9 +8,10 @@ from datetime import datetime
 import copy
 
 import torch
+from torch.nn import Module
 import torch.cuda as cuda
 
-#cuda.init()
+# cuda.init()
 '''
 Initialize PyTorch’s CUDA state. 
 You may need to call this explicitly if you are interacting with PyTorch via its C API, 
@@ -30,47 +31,68 @@ else:
     print(f'\t- GPUs available: {cuda.device_count()}')
     print(f'\t- Cuda is NOT available\n')
 
-
 import torch.nn as nn
 import torch.optim as optimizer
 from torch.utils.data import Subset, DataLoader
 from torch.backends import cudnn
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-from ..DatasetMusic2emotion.emoMusicPT import emoMusicPT
-
+from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusicPTSubset, emoMusicPTDataLoader
 
 TrainingSettings = {
     "batch_size": 32,
     "epochs": 200,
-}
-
-CNNHyperParams = {
-    "kernel_size": 220,
-    "kernel_shift": 110,
-    "kernel_features_maps": 8,
     "learning_rate": 0.0001,
     "weight_decay": 1e-6,
     "momentum": 0.9
 }
 
-class TorchModel(nn.Module):
-    def __init__(self, dataset: emoMusicPT, save_dir_root, **kwargs):
-        super().__init__()
+CNNHyperParams = {
+    "kernel_size": 220,
+    "kernel_shift": 110,
+    "kernel_features_maps": 8
+}
+
+
+class TorchModel(Module):
+    def __init__(self, train_dl: emoMusicPTDataLoader, test_dl: emoMusicPTDataLoader, save_dir_root, n_classes,
+                 **kwargs):
+        super(TorchModel, self).__init__()
         """
-        :param dataset: emoMusicPT object which overrides torch.utils.data.Dataset
-        :param save_dir: root of outputs
+        :param train_dl -> emoMusicPTDataLoader
+        :param test_dl -> emoMusicPTDataLoader
+        :param save_dir_root -> where to store results
         :param kwargs: optionals
         """
         self.name = "CNN_conv1D"
         self.save_dir = save_dir_root
-        self.dataset = dataset
-        self.num_classes = self.dataset.num_classes
+        self.train_dataloader = train_dl
+        self.test_dataloader = test_dl
+        self.num_classes = n_classes
+        self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, self.ex0_label_coords = train_dl.dataset[0]
+        self.input_shape = self.example_0.shape
+        print(f'self.input_shape {type(self.example_0)}')
+        self.kernel_features_maps = CNNHyperParams.get('kernel_features_maps')
+        self.kernel_size = CNNHyperParams.get('kernel_size')
+        self.kernel_shift = int(CNNHyperParams.get('kernel_shift'))
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f'{self.name} will run on the following device: {self.device}')
-        self.epochs = TrainingSettings.get('epochs')
-        self.batch_size = TrainingSettings.get('batch_size')
-        # self.net = net() #TODO: make the class for the different networks
+
+        # Network definition
+        self.first_conv1d = nn.Sequential(
+            nn.Conv1d(in_channels=1, out_channels=self.kernel_features_maps,
+                      kernel_size=(1, self.kernel_size), stride=(1, self.kernel_shift),
+                      bias=True),
+            nn.BatchNorm1d(CNNHyperParams.get('kernel_features_maps')),
+            nn.Dropout(0.25))
+
+        self.head = nn.Sequential(nn.Flatten(),
+                                  nn.Linear(CNNHyperParams.get('kernel_features_maps'), self.num_classes))
+
+
+
+    def forward(self, x):
+        return x
 
     def train(self):
         """
@@ -81,8 +103,8 @@ class TorchModel(nn.Module):
 
         :return:
         """
-
+        model = TorchModel()
         return
+
     def test(self):
         return
-

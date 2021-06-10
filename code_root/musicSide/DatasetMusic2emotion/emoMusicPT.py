@@ -4,6 +4,7 @@ import torch
 import torchaudio
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+from torch.utils.data import Subset
 from sklearn.model_selection import StratifiedShuffleSplit
 import re
 import os
@@ -31,7 +32,7 @@ _SONG_SAMPLES_TOTAL_DURATION = _SLICE_SIZE * _N_SLICES_PER_SONG
 _N_CLASSES = 8
 
 
-class emoMusicPT(Dataset):
+class emoMusicPTDataset(Dataset):
     """
 
     """
@@ -195,11 +196,6 @@ class emoMusicPT(Dataset):
             del filename_path
             return waveform, song_id, filename, emotion_label, {'row_id': row_id}
 
-
-
-
-
-
     def stratified_song_level_split(self, test_fraction):
         splitter = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=0)
         splits = splitter.split(self.wav_filenames, self.labels_song_level)
@@ -230,27 +226,60 @@ class emoMusicPT(Dataset):
         print(" - encoding:", _metadata.encoding)
         print()
 
+# %% emoMusicPTSubset
+
+
+class emoMusicPTSubset(Subset):
+    """
+    extends torch.utils.data.Subset(dataset, indices)
+    Subset of a dataset a t specified indices.
+    :param dataset (Dataset) the whole dataset
+    :indices(sequence) indices in the whole set selected for subset
+    """
+    def __init__(self, dataset, indices):
+        super().__init__(dataset, indices)
+
+# %%
+
 
 # %% emoMusicPTDataloader class:
-class emoMusicPTDataloader(DataLoader):
 
-    def __init__(self, dataset: emoMusicPT, batch_size=1, shuffle=False, sampler=None, batch_sampler=None, num_workers=0,
-                 collate_fn=None, pin_memory=False, drop_last=False, timeout=0, worker_init_fn=None, *, prefetch_factor=2, persistent_workers=False):
-        super.__init__()
+
+class emoMusicPTDataLoader(DataLoader):
+    """
+    Extends torch.utils.data.DataLoader. Combines a dataset and a sampler and provides an iterable over the given dataset
+    """
+    def __init__(self, dataset: emoMusicPTSubset, batch_size=1, shuffle=False, num_workers=1):
+        super().__init__(dataset)
         '''   
-        :param dataset: a map-style [implements __getitem__() and __len__()] or iterable-style dataset
-        :param batch_size: 
-        :param shuffle: 
-        :param sampler: 
-        :param batch_sampler: 
-        :param num_workers: 
-        :param collate_fn: 
-        :param pin_memory: 
-        :param drop_last: 
+        :param dataset:(torch.data.utils.Dataset) a map-style [implements __getitem__() and __len__()] or iterable-style
+        
+        :param batch_size: how many samples to load
+        
+        :param shuffle: if True data are reshuffled at every epoch
+        
+        :param sampler: strategy to draw samples from the dataset, can be any Iterable with __len__ implemented
+        
+        :param batch_sampler: like sampler, but returns a batch of indices at a time. Mutually exclusive with batch_size,
+                                                                                        shuffle, sampler and drop_last
+                                                                                        
+        :param num_workers: how many subprocess to use for data loading
+        
+        :param collate_fn: merges a list of samples to form a mini-batch of Tensor(s). Used when using batched loading 
+                            from a  map-style dataset
+                            
+        :param pin_memory: if True, data loader will copy Tensors into CUDA pinned memory before returning them.
+        
+        :param drop_last: if True drops the last incomplete batch
+        
         :param timeout: 
-        :param worker_init_fn: 
-        :param prefetch_factor: 
-        :param persistent_workers: 
+        :param worker_init_fn: if not None, this will be called on each worker subprocess with the worker id
+        
+        :param prefetch_factor: number of samples loaded in advance by each worker: 
+                                2 means there will be a total of 2*num_workers samples prefetched across all workers
+                                
+        :param persistent_workers: If True the data loader will not shutdown the worker processes after a dataset 
+                                    has been consumed once. This allows to maintain the workers Dataset instances alive
         
         It represents a python iterable over a dataset, with support for:
             - map-style and iterable-style datasets, 
@@ -259,7 +288,7 @@ class emoMusicPTDataloader(DataLoader):
             - single and multi-process data loaing,
             - automatic memory pinning
         '''
-        return
+
 
 
 # %%
