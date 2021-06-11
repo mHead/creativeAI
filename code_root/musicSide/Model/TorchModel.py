@@ -1,4 +1,5 @@
 from ..DatasetMusic2emotion.DatasetMusic2emotion import DatasetMusic2emotion
+from ..DatasetMusic2emotion.tools import utils as u
 from ..DatasetMusic2emotion.tools.utils import format_timestamp
 
 import os
@@ -10,42 +11,15 @@ import copy
 import torch
 from torch.nn import Module
 import torch.cuda as cuda
-
-# cuda.init()
-'''
-Initialize PyTorch’s CUDA state. 
-You may need to call this explicitly if you are interacting with PyTorch via its C API, 
-as Python bindings for CUDA functionality will not be available until this initialization takes place.
-Ordinary users should not need this, as all of PyTorch’s CUDA methods automatically initialize CUDA state on-demand.
-
-Does nothing if the CUDA state is already initialized.
-'''
-# some print informations
-print(f'****\tTorchModel.py imported****\t****\n')
-print(f'Using torch version: {torch.__version__}')
-
-if cuda.is_available():
-    print(f'\t- GPUs available: {cuda.device_count()}')
-    print(f'\t- Current device index: {cuda.current_device()}')
-else:
-    print(f'\t- GPUs available: {cuda.device_count()}')
-    print(f'\t- Cuda is NOT available\n')
-
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optimizer
 from torch.utils.data import Subset, DataLoader
 from torch.backends import cudnn
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusicPTSubset, emoMusicPTDataLoader
-
-TrainingSettings = {
-    "batch_size": 32,
-    "epochs": 200,
-    "learning_rate": 0.0001,
-    "weight_decay": 1e-6,
-    "momentum": 0.9
-}
 
 CNNHyperParams = {
     "kernel_size": 220,
@@ -69,42 +43,47 @@ class TorchModel(Module):
         self.train_dataloader = train_dl
         self.test_dataloader = test_dl
         self.num_classes = n_classes
+        self.labels = np.array([0, 1, 2, 3, 4, 5, 6, 7])
+        self.one_hot_labels = 0
         self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, self.ex0_label_coords = train_dl.dataset[0]
         self.input_shape = self.example_0.shape
         print(f'self.input_shape {type(self.example_0)}')
+
         self.kernel_features_maps = CNNHyperParams.get('kernel_features_maps')
         self.kernel_size = CNNHyperParams.get('kernel_size')
         self.kernel_shift = int(CNNHyperParams.get('kernel_shift'))
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.conv1d_L_output = ((self.input_shape[1] - 1 * (self.kernel_size - 1) - 1) // self.kernel_shift) + 1
+        self.conv1d_output_dim = self.conv1d_L_output * self.kernel_features_maps
+
         print(f'{self.name} will run on the following device: {self.device}')
 
         # Network definition
-        self.first_conv1d = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=self.kernel_features_maps,
-                      kernel_size=(1, self.kernel_size), stride=(1, self.kernel_shift),
-                      bias=True),
-            nn.BatchNorm1d(CNNHyperParams.get('kernel_features_maps')),
-            nn.Dropout(0.25))
+        self.first_conv1d = nn.Conv1d(in_channels=1, out_channels=self.kernel_features_maps,
+                      kernel_size=self.kernel_size, stride=self.kernel_shift,
+                      bias=False)
+        self.ReLU = nn.ReLU()
+        self.batchnorm = nn.BatchNorm1d(CNNHyperParams.get('kernel_features_maps'))
+        self.dropout = nn.Dropout(0.25)
+        self.flatten = nn.Flatten()
 
-        self.head = nn.Sequential(nn.Flatten(),
-                                  nn.Linear(CNNHyperParams.get('kernel_features_maps'), self.num_classes))
+        self.clf_head = nn.Linear(self.conv1d_output_dim, self.num_classes, bias=False)
 
+        self.apply(self._init_weights)
 
+    def _init_weights(self, layer) -> None:
+        if isinstance(layer, nn.Conv1d):
+            nn.init.kaiming_uniform_(layer.weight)
+        elif isinstance(layer, nn.Linear):
+            nn.init.xavier_uniform_(layer.weight)
 
     def forward(self, x):
-        return x
+        x = self.first_conv1d(x)
+        x = self.ReLU(x)
+        x = self.batchnorm(x)
+        x = self.dropout(x)
+        flatten = self.flatten(x)
+        logits = self.clf_head(flatten)
 
-    def train(self):
-        """
-        each epoch: forward and backward pass of ALL training samples
-        batch_size = number of training samples in one forward & backward pass
-        n_iterations = number of passes, each pass using [batch_size] number of samples
-        e.g. 100 samples, batch_size=20 -> 100/20 = 5 iterations for 1 epoch
-
-        :return:
-        """
-        model = TorchModel()
-        return
-
-    def test(self):
-        return
+        return logits, flatten

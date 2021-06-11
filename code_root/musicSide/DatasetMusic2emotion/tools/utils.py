@@ -7,11 +7,38 @@ import datetime
 import matplotlib.pyplot as plt
 import gc
 from sklearn.preprocessing import LabelEncoder
-print(f'****\tmusicSide.DatasetMusic2emotion.tools.utils.py imported\t****\n'
-      f'Using garbage collector with thresholds: {gc.get_threshold()}\n')
+import torch
+import torch.cuda as cuda
+import torch.nn as nn
+
+print(f'****\tmusicSide.DatasetMusic2emotion.tools.utils.py imported\t****\n')
+print(f'Using garbage collector with thresholds: {gc.get_threshold()}\n')
+
+
+# cuda.init()
+'''
+Initialize PyTorch’s CUDA state. 
+You may need to call this explicitly if you are interacting with PyTorch via its C API, 
+as Python bindings for CUDA functionality will not be available until this initialization takes place.
+Ordinary users should not need this, as all of PyTorch’s CUDA methods automatically initialize CUDA state on-demand.
+
+Does nothing if the CUDA state is already initialized.
+'''
+# some print informations
+print(f'****\tTorchModel.py imported****\t****\n')
+print(f'Using torch version: {torch.__version__}')
+
+if cuda.is_available():
+    print(f'\t- GPUs available: {cuda.device_count()}')
+    print(f'\t- Current device index: {cuda.current_device()}')
+else:
+    print(f'\t- GPUs available: {cuda.device_count()}')
+    print(f'\t- Cuda is NOT available\n')
+
 runs_on = r'legion'
 save_files = False
-# some difines
+
+# some defines
 __SAMPLE_AT = 44100
 __START_CLIP = 15000
 __END_CLIP = 45000
@@ -221,16 +248,15 @@ def read_preprocessed_wavs(wav_dir):
 
     preprocessed_wavs = np.array(preprocessed_wavs).reshape(len(filenames), __CLIP_LENGTH)
 
-
     trimmed_raw_audio_files = trim_audio_files(preprocessed_wavs, window_size=__INPUT_500ms_SAMPLES,
                                                n_slices=__nSLICES)
     assert len(trimmed_raw_audio_files) == len(preprocessed_wavs)
     if memory_management:
         del preprocessed_wavs, clipped_audio
-    trimmed_raw_audio_files = np.array(trimmed_raw_audio_files, dtype='int32').reshape(len(filenames), __nSLICES, __INPUT_500ms_SAMPLES)
+    trimmed_raw_audio_files = np.array(trimmed_raw_audio_files, dtype='int32').reshape(len(filenames), __nSLICES,
+                                                                                       __INPUT_500ms_SAMPLES)
 
     return trimmed_raw_audio_files, __CLIP_LENGTH, __SAMPLE_AT, __nSLICES, __INPUT_500ms_SAMPLES
-
 
 
 def clip_audio_files(padded_raw_audio_vector, start_ms, end_ms, sample_rate, verbose=True):
@@ -299,7 +325,8 @@ def trim_audio_files(clipped_raw_audio_files, window_size, n_slices):
 
     one_slice = slices[0]
     one_sample = one_slice[0]
-    print(f'type slices (of one song) {type(slices)}, len {len(slices)}, type of single element of one slice{type(one_sample)}')
+    print(
+        f'type slices (of one song) {type(slices)}, len {len(slices)}, type of single element of one slice{type(one_sample)}')
     if memory_management:
         del clipped_raw_audio_files, _slice, slices, song
     # print(f'{len(songs_trimmed) * len(songs_trimmed[0])*songs_trimmed[0].shape[1]}\n{type(songs_trimmed)}')
@@ -355,6 +382,7 @@ def add_padding(audio_files, padding_length, boundary):
 
     return padded_songs, padded_songs_lengths
 
+
 def get_single_song_emo_label(song_labels_array):
     label = np.bincount(song_labels_array).argmax()
     # print(f'Most freq value: {label}')
@@ -378,6 +406,7 @@ def extract_labels(labels_csv_path):
     assert len(single_label_array) == len(song_ids) == labels.shape[0]
     return labels, song_ids, single_label_array
 
+
 def save_preprocessed_audios(audio_raw_files, wav_filenames, directory_to_save):
     if not os.path.exists(directory_to_save):
         os.mkdir(directory_to_save)
@@ -388,7 +417,20 @@ def save_preprocessed_audios(audio_raw_files, wav_filenames, directory_to_save):
 
     assert len(os.listdir(directory_to_save)) == len(wav_filenames)
 
+
 # %% 2. Utilities
+
+def set_device(model, device):
+    if type(device) is int:
+        if device > 0:
+            torch.cuda.set_device(device - 1)
+            model.cuda(device - 1)
+    elif type(device) is list:
+        devices = [i - 1 for i in device]
+        torch.cuda.set_device(devices[0])
+        model = nn.DataParallel(model, device_ids=devices).cuda()
+
+    return model
 
 
 def mp3_to_wav(source_mp3_dir, dst_wav_dir):
@@ -491,7 +533,7 @@ def format_timestamp(current_timestamp: datetime):
 def to_one_hot(y):
     y_one_hot = []
     for i in range(len(y)):
-        one_hot = np.zeros(8) # TODO: remove hardcoded 8
+        one_hot = np.zeros(8)  # TODO: remove hardcoded 8
         for label in range(8):
             if label == y[i][0]:
                 one_hot[label] = 1
@@ -499,3 +541,18 @@ def to_one_hot(y):
 
     y_one_hot = np.array(y_one_hot).reshape(y.shape[0] * y.shape[1], 8)
     return y_one_hot
+
+def int_to_one_hot(y):
+    pt = True
+
+    y_one_hot = np.zeros(8)
+
+    for i in y_one_hot:
+        if i == y:
+            y_one_hot[y] = 1
+
+    if pt:
+        res = torch.from_numpy(y_one_hot)
+        return res
+    else:
+        return y_one_hot

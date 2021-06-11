@@ -9,6 +9,7 @@ from musicSide.DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusi
 # Models
 from musicSide.Model.CNN_biGRU import CNN_BiGRU
 from musicSide.Model.TorchModel import TorchModel
+from musicSide.Model.Runner import Runner
 from musicSide.Model.Benchmark import Benchmark
 from sklearn.model_selection import StratifiedShuffleSplit
 import torch
@@ -126,7 +127,7 @@ if __name__ == '__main__':
         b.start_timer()
         # Create the Dataset Object
         pytorch_dataset = emoMusicPTDataset(dataset_root=music_dataset_path, slice_mode=True)
-        print(f'\n***** main: emoMusicPT created *****\n\n')
+        print(f'\n***** main: emoMusicPT created*****\n\n\temoMusic slice_mode: {pytorch_dataset.slice_mode}')
         # Make Train/Test splits indexes (at song level) -> maintain the order inside the song
         test_frac = 0.1
         train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
@@ -143,10 +144,9 @@ if __name__ == '__main__':
 
         b = Benchmark("pytorch_model_timer")
         first_model = TorchModel(train_DataLoader, test_DataLoader, save_dir_root=save_dir_root, n_classes=pytorch_dataset.num_classes)
-        #first_model.compile()
-        #first_model.train()
-        #b.end_timer()
-        #first_model.print_statistics()
-        #first_model.test()
+
+        runner = Runner(first_model)
+        runner._train()
+
     # %%
     sys.exit(0)

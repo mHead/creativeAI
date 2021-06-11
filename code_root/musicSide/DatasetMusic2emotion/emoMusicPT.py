@@ -5,7 +5,9 @@ import torchaudio
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
+from ..DatasetMusic2emotion.tools.utils import int_to_one_hot
 from sklearn.model_selection import StratifiedShuffleSplit
+
 import re
 import os
 import pandas as pd
@@ -163,6 +165,7 @@ class emoMusicPTDataset(Dataset):
                 print(f'The file at {filename_path} does not exist')
 
             del waveform, waveform_array, wave_trimmed, _waveform, filename_path, start_offset, end_offset
+            # emotion_one_hot = int_to_one_hot(emotion_label)
             return _wav_slice, song_id, filename, emotion_label, {'row_id': row_id, 'col_id': col_id}
 
         else:
@@ -194,6 +197,8 @@ class emoMusicPTDataset(Dataset):
                 print(f'The file at {filename_path} does not exist')
 
             del filename_path
+
+            # emotion_one_hot = int_to_one_hot(emotion_label)
             return waveform, song_id, filename, emotion_label, {'row_id': row_id}
 
     def stratified_song_level_split(self, test_fraction):
