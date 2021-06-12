@@ -59,10 +59,10 @@ class Runner(object):
         self.tensorboard_outs_path = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('tensorboard_outs'))
         self.models_save_dir = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('save_directory'))
         # Write the graph to be read on Tensorboard
-        self.writer = SummaryWriter(self.tensorboard_outs_path)
-        example = self.model.emoMusicPTDataset[0]
-        self.writer.add_graph(self.model, example[0].reshape(1, 1, 22050))
-        self.writer.close()
+        #self.writer = SummaryWriter(self.tensorboard_outs_path)
+        #example = self.model.emoMusicPTDataset[0]
+        #self.writer.add_graph(self.model, example[0].reshape(1, 1, 22050))
+        #self.writer.close()
         # Defining aspects of the model lifecycle
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,
                                           weight_decay=self.settings.get('weight_decay'))
@@ -74,31 +74,79 @@ class Runner(object):
                                                    reduction='mean')
 
     def run(self, dataloader, mode='train', slice_mode=False):
-        self.model.train() if mode is 'train' else self.model.eval()
+        """
+        Called one time for each epoch. It has to parse the whole dataset each time.
+        :param dataloader:
+        :param mode: train or eval
+        :param slice_mode: True or False
+        :return:
+        """
+        self.model.train() if mode == 'train' else self.model.eval()
 
-        epoch_loss = 0.0
-        epoch_acc = 0.0
+        if slice_mode:
+            '''
+            input of conv1D is (1, 1, 22050) take prediction for every slice (61 in one song)
+            when in slice_mode dataset expects indices ranging from 0 to 45357 such that:
+            - pass the song_index then convert that index in slice_index and loop 61 times
+            '''
+            epoch_loss = 0.0
+            epoch_acc = 0.0
 
-        model = u.set_device(self.model, self.device)
+            model = u.set_device(self.model, self.device)
+            train_indices = dataloader.sampler.data_source.indices
+            train_indices.sort()
+            s = dataloader.dataset[54]
+            for song_idx in train_indices:
+                start_idx, end_idx = dataloader.song_idx_to_slices_range(song_idx)
+                for i in range(start_idx, end_idx):
+                    audio_segment, song_id, filename, emotion_label, coords = dataloader.dataset[i]
 
-        for batch, (audio_segment, song_id, filename, label, coords) in enumerate(dataloader):
+            for batch, (audio_segment, song_id, filename, label, coords) in enumerate(dataloader):
 
-            # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
-            score, flatten = self.model(audio_segment)
+                # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
+                score, flatten = self.model(audio_segment)
 
-            loss = self.criterion(score, label)
-            acc = self.accuracy(score, label)
+                loss = self.criterion(score, label)
+                acc = self.accuracy(score, label)
 
-            if mode is 'train':
-                loss.backward()
-                self.optimizer.step()
-                self.optimizer.zero_grad()
+                if mode is 'train':
+                    loss.backward()
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
 
-            epoch_loss += score.size(0) * loss.item()
-            epoch_acc += score.size(0) * acc
+                epoch_loss += score.size(0) * loss.item()
+                epoch_acc += score.size(0) * acc
 
-        epoch_loss = epoch_loss / len(dataloader.dataset)
-        epoch_acc = epoch_acc / len(dataloader.dataset)
+            epoch_loss = epoch_loss / len(dataloader.dataset)
+            epoch_acc = epoch_acc / len(dataloader.dataset)
+        else:
+            '''
+            the input of conv1d is (1, 1, 1345050).
+            When slice_mode is off dataset expects indices ranging from 0 to 743 such that:
+            - pass the song_index and retrieve the whole song
+            '''
+            epoch_loss = 0.0
+            epoch_acc = 0.0
+
+            model = u.set_device(self.model, self.device)
+
+            for batch, (song_data, song_id, filename, dominant_label, coords) in enumerate(dataloader):
+                # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
+                score, flatten = self.model(song_data)
+
+                loss = self.criterion(score, dominant_label)
+                acc = self.accuracy(score, dominant_label)
+
+                if mode is 'train':
+                    loss.backward()
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+
+                epoch_loss += score.size(0) * loss.item()
+                epoch_acc += score.size(0) * acc
+
+            epoch_loss = epoch_loss / len(dataloader.dataset)
+            epoch_acc = epoch_acc / len(dataloader.dataset)
 
         return epoch_loss, epoch_acc
 
@@ -121,7 +169,6 @@ class Runner(object):
         self.save_policies = TrainSavingsPolicies
 
         if self.model.emoMusicPTDataset.slice_mode:
-
             for epoch in range(self.settings.get('epochs')):
                 train_loss, train_acc = self.run(self.model.train_dataloader, mode='train', slice_mode=True)
 
@@ -133,7 +180,7 @@ class Runner(object):
                     break
 
         else:
-            for epoch in range(self.setting.get('epochs')):
+            for epoch in range(self.settings.get('epochs')):
                 train_loss, train_acc = self.run(self.model.train_dataloader, 'train', slice_mode=False)
 
                 print(f'Epoch: {epoch + 1 / self.settings.get("epochs")}\n'

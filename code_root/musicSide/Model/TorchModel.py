@@ -29,7 +29,8 @@ CNNHyperParams = {
 
 
 class TorchModel(Module):
-    def __init__(self, dataset: emoMusicPTDataset, train_dl: emoMusicPTDataLoader, test_dl: emoMusicPTDataLoader, save_dir_root, n_classes,
+    def __init__(self, dataset: emoMusicPTDataset, train_dl: emoMusicPTDataLoader, test_dl: emoMusicPTDataLoader,
+                 save_dir_root, n_classes,
                  **kwargs):
         super(TorchModel, self).__init__()
         """
@@ -45,7 +46,6 @@ class TorchModel(Module):
         self.test_dataloader = test_dl
         self.num_classes = n_classes
         self.labels = np.array([0, 1, 2, 3, 4, 5, 6, 7])
-        self.one_hot_labels = 0
         self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, self.ex0_label_coords = train_dl.dataset[0]
         self.input_shape = self.example_0.shape
         print(f'self.input_shape {type(self.example_0)}')
@@ -62,8 +62,8 @@ class TorchModel(Module):
 
         # Network definition
         self.first_conv1d = nn.Conv1d(in_channels=1, out_channels=self.kernel_features_maps,
-                      kernel_size=self.kernel_size, stride=self.kernel_shift,
-                      bias=False)
+                                      kernel_size=self.kernel_size, stride=self.kernel_shift,
+                                      bias=False)
         self.ReLU = nn.ReLU()
         self.batchnorm = nn.BatchNorm1d(CNNHyperParams.get('kernel_features_maps'))
         self.dropout = nn.Dropout(0.25)

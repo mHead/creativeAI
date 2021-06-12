@@ -5,7 +5,7 @@ import torchaudio
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
-from ..DatasetMusic2emotion.tools.utils import int_to_one_hot
+from ..DatasetMusic2emotion.tools import utils as u
 from sklearn.model_selection import StratifiedShuffleSplit
 
 import re
@@ -71,7 +71,8 @@ class emoMusicPTDataset(Dataset):
         # Actual data to refer
         self.wav_filenames = wav_filenames
         self.labels_song_level = self.single_label_per_song_frame.loc[:, 'emotion_label']
-        self.labels_slice_levels = self.song_id_emotions_labels_frame.loc[:, self.song_id_emotions_labels_frame.columns != 'song_id']
+        #self.labels_slice_levels = self.song_id_emotions_labels_frame.loc[1:, self.song_id_emotions_labels_frame.columns != 'song_id']
+        self.labels_slice_levels, song_ids, labels_song_lvl = u.extract_labels(self.song_id_emotions_csv_path)
 
         self.print_info()
 
@@ -294,6 +295,11 @@ class emoMusicPTDataLoader(DataLoader):
             - automatic memory pinning
         '''
 
+    def song_idx_to_slices_range(self, n):
+        start = n * _N_SLICES_PER_SONG
+        end = start + _N_SLICES_PER_SONG
+
+        return start, end
 
 
 # %%

@@ -126,7 +126,7 @@ if __name__ == '__main__':
         b = Benchmark("pytorch_dataset_timer")
         b.start_timer()
         # Create the Dataset Object
-        pytorch_dataset = emoMusicPTDataset(dataset_root=music_dataset_path, slice_mode=True)
+        pytorch_dataset = emoMusicPTDataset(dataset_root=music_dataset_path, slice_mode=False)
         print(f'\n***** main: emoMusicPT created*****\n\temoMusic slice_mode: {pytorch_dataset.slice_mode}\n\n')
         # Make Train/Test splits indexes (at song level) -> maintain the order inside the song
         test_frac = 0.1
