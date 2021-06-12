@@ -12,20 +12,22 @@ import re
 import os
 import pandas as pd
 
-legion = False
+legion = True
 verbose = True
 
 if legion:
     _REPO_ROOT = r'/home/mtesta/creativeAI'
+    _WAV_DIR_RELATIVE = r'data/clips_30seconds_preprocessed'
 else:
     _REPO_ROOT = r'/Users/head/Documents/GitHub/creativeAI'
+    _WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG'
 
 
 
 _MULTI_LABELS_PER_SONG_CSV = r'[labels]emotion_average_dataset_csv/music_emotions_labels.csv'
 _SINGLE_LABEL_PER_SONG_CSV = r'[labels]emotion_average_dataset_csv/music_single_emotion_labels.csv'
 _MUSIC_DATA_ROOT = r'musicSide_root_data'
-_WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG'
+
 
 _SAMPLE_RATE = 44100
 _N_SLICES_PER_SONG = 61
