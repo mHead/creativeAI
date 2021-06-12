@@ -17,7 +17,7 @@ verbose = True
 
 if legion:
     _REPO_ROOT = r'/home/mtesta/creativeAI'
-    _WAV_DIR_RELATIVE = r'data/clips_30seconds_preprocessed'
+    _WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed'
 else:
     _REPO_ROOT = r'/Users/head/Documents/GitHub/creativeAI'
     _WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG'
