@@ -127,7 +127,7 @@ if __name__ == '__main__':
         b.start_timer()
         # Create the Dataset Object
         pytorch_dataset = emoMusicPTDataset(dataset_root=music_dataset_path, slice_mode=True)
-        print(f'\n***** main: emoMusicPT created*****\n\n\temoMusic slice_mode: {pytorch_dataset.slice_mode}')
+        print(f'\n***** main: emoMusicPT created*****\n\temoMusic slice_mode: {pytorch_dataset.slice_mode}\n\n')
         # Make Train/Test splits indexes (at song level) -> maintain the order inside the song
         test_frac = 0.1
         train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
@@ -143,10 +143,17 @@ if __name__ == '__main__':
         b.end_timer()
 
         b = Benchmark("pytorch_model_timer")
-        first_model = TorchModel(train_DataLoader, test_DataLoader, save_dir_root=save_dir_root, n_classes=pytorch_dataset.num_classes)
+        first_model = TorchModel(pytorch_dataset, train_DataLoader, test_DataLoader, save_dir_root=save_dir_root, n_classes=pytorch_dataset.num_classes)
 
         runner = Runner(first_model)
-        runner._train()
+        exit_code = runner.train()
+
+        if exit_code == runner.SUCCESS:
+            print('[main] Training Done!')
+        elif exit_code == runner.FAILURE:
+            print('[main] Training Failed!')
+        else:
+            print(f'[main] Training returned with a not expected exit code {exit_code}')
 
     # %%
     sys.exit(0)

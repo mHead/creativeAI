@@ -29,7 +29,7 @@ CNNHyperParams = {
 
 
 class TorchModel(Module):
-    def __init__(self, train_dl: emoMusicPTDataLoader, test_dl: emoMusicPTDataLoader, save_dir_root, n_classes,
+    def __init__(self, dataset: emoMusicPTDataset, train_dl: emoMusicPTDataLoader, test_dl: emoMusicPTDataLoader, save_dir_root, n_classes,
                  **kwargs):
         super(TorchModel, self).__init__()
         """
@@ -40,6 +40,7 @@ class TorchModel(Module):
         """
         self.name = "CNN_conv1D"
         self.save_dir = save_dir_root
+        self.emoMusicPTDataset = dataset
         self.train_dataloader = train_dl
         self.test_dataloader = test_dl
         self.num_classes = n_classes
