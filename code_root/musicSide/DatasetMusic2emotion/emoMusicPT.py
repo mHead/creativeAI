@@ -12,17 +12,8 @@ import re
 import os
 import pandas as pd
 
-legion = True
-verbose = True
-
-if legion:
-    _REPO_ROOT = r'/home/mtesta/creativeAI'
-    _WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed'
-else:
-    _REPO_ROOT = r'/Users/head/Documents/GitHub/creativeAI'
-    _WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG'
-
-
+legion = False
+verbose = False
 
 _MULTI_LABELS_PER_SONG_CSV = r'[labels]emotion_average_dataset_csv/music_emotions_labels.csv'
 _SINGLE_LABEL_PER_SONG_CSV = r'[labels]emotion_average_dataset_csv/music_single_emotion_labels.csv'
@@ -40,10 +31,10 @@ class emoMusicPTDataset(Dataset):
     """
 
     """
-    def __init__(self, dataset_root, slice_mode=False):
+    def __init__(self, dataset_root, slice_mode=False, env=''):
         """
         This is a map-style dataset because it implements the __getitem__ and __len__ protocols
-        it can be accessed as dataset[n] which read the idx-th sample (the song chunk) and its corresponding label.
+        it can be accessed as dataset[n] which read the idx-th sample and its corresponding label.
 
         slice_mode:
             if True the __getitem__(self, n)
@@ -53,16 +44,26 @@ class emoMusicPTDataset(Dataset):
 
         """
         super().__init__()
+
+        if env == 'legion':
+            self.run_conf = env
+            self._REPO_ROOT = r'/home/mtesta/creativeAI'
+            self._WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed'
+        else:
+            self.run_conf = env
+            self._REPO_ROOT = r'/Users/head/Documents/GitHub/creativeAI'
+            self._WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG'
+
         self.name = 'emoMusicPT: Dataset wrapper for PyTorch'
         self.slice_mode = slice_mode
-        self.music_data_root = os.path.join(_REPO_ROOT, _MUSIC_DATA_ROOT)
-        print(f'**** Creating {self.name}\n\trepo root: {_REPO_ROOT}\n\tmusic data root: {self.music_data_root}\n\tisInSliceMode? {self.slice_mode} ****')
+        self.music_data_root = os.path.join(self._REPO_ROOT, _MUSIC_DATA_ROOT)
+        print(f'[emoMusicPTDataset.py]\n**** Creating {self.name} ****\n\trepo root: {self._REPO_ROOT}\n\tmusic data root: {self.music_data_root}\n\tslice_mode: {self.slice_mode}\n\n')
 
 
         # PATHS for 2 csv + audio folder
         self.song_id_dominant_emotion_csv_path = os.path.join(self.music_data_root, _SINGLE_LABEL_PER_SONG_CSV)
         self.song_id_emotions_csv_path = os.path.join(self.music_data_root, _MULTI_LABELS_PER_SONG_CSV)
-        self.audio_path = os.path.join(self.music_data_root, _WAV_DIR_RELATIVE)
+        self.audio_path = os.path.join(self.music_data_root, self._WAV_DIR_RELATIVE)
         self.num_classes = _N_CLASSES
         # Read from filesystem audio filenames + 2 csv
         self.song_id_emotions_labels_frame = pd.read_csv(self.song_id_emotions_csv_path)
@@ -72,9 +73,10 @@ class emoMusicPTDataset(Dataset):
 
         # Actual data to refer
         self.wav_filenames = wav_filenames
-        self.labels_song_level = self.single_label_per_song_frame.loc[:, 'emotion_label']
-        #self.labels_slice_levels = self.song_id_emotions_labels_frame.loc[1:, self.song_id_emotions_labels_frame.columns != 'song_id']
-        self.labels_slice_levels, song_ids, labels_song_lvl = u.extract_labels(self.song_id_emotions_csv_path)
+        del wav_filenames
+        #self.labels_song_level = self.single_label_per_song_frame.loc[:, 'emotion_label']
+        #self.labels_slice_level = self.song_id_emotions_labels_frame.loc[1:, self.song_id_emotions_labels_frame.columns != 'song_id']
+        self.labels_slice_level, self.song_ids, self.labels_song_level = u.extract_labels(self.song_id_emotions_csv_path)
 
         self.print_info()
 
@@ -174,14 +176,19 @@ class emoMusicPTDataset(Dataset):
         else:
             assert self.__len__() > n >= 0
             row_id = n
-            song_id = self.single_label_per_song_frame.iloc[row_id, 0]
-            emotion_label = self.single_label_per_song_frame.iloc[row_id, 1]
+            #song_id = self.single_label_per_song_frame.iloc[row_id, 0]
+            #emotion_label = self.single_label_per_song_frame.iloc[row_id, 1]
+
+            song_id = self.wav_filenames[n].split('.')[0]
+            filename = self.wav_filenames[n]
+            emotion_label = self.labels_song_level[n]
+
             if verbose:
                 print(f'type song_id {type(song_id)} : {song_id} | '
                       f'type emotion_label : {type(emotion_label)} : {emotion_label}')
             # now read audio associated
-            filename = str(song_id) + '.wav'
-            if filename in self.wav_filenames:
+            # filename = str(song_id) + '.wav'
+            if len(filename) > 0:
                 filename_path = os.path.join(self.audio_path, filename)
             else:
                 print(f'{filename} does not exist in path')
@@ -208,19 +215,23 @@ class emoMusicPTDataset(Dataset):
         splitter = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=0)
         splits = splitter.split(self.wav_filenames, self.labels_song_level)
 
+        train_index = []
+        test_index = []
         for train_index, test_index in splits:
-            print(f'TRAIN INDEX: {train_index} type: {type(train_index)} shape: {train_index.shape}')
-            print(f'TEST INDEX: {test_index} type: {type(test_index)} shape: {test_index.shape}')
-
+            print(f'[emoMusicPTDataset.py] TRAIN INDEX: {train_index} type: {type(train_index)} shape: {train_index.shape}')
+            print(f'[emoMusicPTDataset.py] TEST INDEX: {test_index} type: {type(test_index)} shape: {test_index.shape}')
+        train_index.sort()
+        test_index.sort()
+        print(f'\n[emoMusicPTDataset.py] type train_indexes {type(train_index)}\ntype test_indexes {type(test_index)}')
         return train_index, test_index
 
     def print_info(self):
         print(f'Name: {self.name}\nData_root:\n'
               f'\tAudio: {self.audio_path}\n'
               f'\tLabels: {self.song_id_dominant_emotion_csv_path}\n\t{self.song_id_emotions_csv_path}\n'
-              f'self.labels_song_level: \n{self.labels_song_level} {type(self.labels_song_level)} {len(self.labels_song_level)}\n\n '
-              f'self.labels_slice_levels: \n{self.labels_slice_levels} {type(self.labels_slice_levels)} {len(self.labels_slice_levels)}\n\n'
-              f'self.wav_filenames: \n{self.wav_filenames} {type(self.wav_filenames)}\nlen: {len(self.wav_filenames)}')
+              f'self.labels_song_level: \n{self.labels_song_level}\ntype: {type(self.labels_song_level)}\nlen: {len(self.labels_song_level)}\n\n '
+              f'self.labels_slice_level: \n{self.labels_slice_level}\ntype: {type(self.labels_slice_level)}\nlen: {len(self.labels_slice_level)}\n\n'
+              f'self.wav_filenames: \n{self.wav_filenames}\ntype: {type(self.wav_filenames)}\nlen: {len(self.wav_filenames)}\n\n')
 
     def print_metadata(self, _metadata, src=None):
         if src:

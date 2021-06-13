@@ -24,7 +24,7 @@ from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusicPTSubse
 CNNHyperParams = {
     "kernel_size": 220,
     "kernel_shift": 110,
-    "kernel_features_maps": 8
+    "kernel_features_maps": 8*61
 }
 
 
@@ -39,7 +39,7 @@ class TorchModel(Module):
         :param save_dir_root -> where to store results
         :param kwargs: optionals
         """
-        self.name = "CNN_conv1D"
+        self.name = "CNN_1conv1D"
         self.save_dir = save_dir_root
         self.emoMusicPTDataset = dataset
         self.train_dataloader = train_dl
@@ -58,14 +58,14 @@ class TorchModel(Module):
         self.conv1d_L_output = ((self.input_shape[1] - 1 * (self.kernel_size - 1) - 1) // self.kernel_shift) + 1
         self.conv1d_output_dim = self.conv1d_L_output * self.kernel_features_maps
 
-        print(f'{self.name} will run on the following device: {self.device}')
+        print(f'[TorchModel.py]{self.name} will run on the following device: {self.device}')
 
         # Network definition
         self.first_conv1d = nn.Conv1d(in_channels=1, out_channels=self.kernel_features_maps,
                                       kernel_size=self.kernel_size, stride=self.kernel_shift,
                                       bias=False)
         self.ReLU = nn.ReLU()
-        self.batchnorm = nn.BatchNorm1d(CNNHyperParams.get('kernel_features_maps'))
+        self.batch_norm = nn.BatchNorm1d(CNNHyperParams.get('kernel_features_maps'))
         self.dropout = nn.Dropout(0.25)
         self.flatten = nn.Flatten()
 
@@ -82,7 +82,7 @@ class TorchModel(Module):
     def forward(self, x):
         x = self.first_conv1d(x)
         x = self.ReLU(x)
-        x = self.batchnorm(x)
+        x = self.batch_norm(x)
         x = self.dropout(x)
         flatten = self.flatten(x)
         logits = self.clf_head(flatten)

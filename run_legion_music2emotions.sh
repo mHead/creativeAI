@@ -3,8 +3,8 @@
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=6
 #SBATCH --partition=cuda
-#SBATCH --mem=20GB
-#SBATCH --time=72:00:00
+#SBATCH --mem=16GB
+#SBATCH --time=24:00:00
 #SBATCH --output=mus2emo_%j_out.txt
 #SBATCH --error=mus2emo_%j_err.txt
 
@@ -24,6 +24,7 @@ cd /home/mtesta/ || exit
 #echo "wZJ15QXvZzMAAAAAAAAAAZabVRJ84LA_mJiIY2-khYD9ZHLY9Ot_1I54QXvaJA_X" > token.txt
 #dropbox_uploader.sh
 # %%
+
 # if exists remove repo and reclone updated
 #rm -Rf creativeAI/
 #git clone https://github.com/mHead/creativeAI.git

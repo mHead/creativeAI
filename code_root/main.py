@@ -123,37 +123,41 @@ if __name__ == '__main__':
 
     # %% PyTorch Main
     if pytorch_:
-        b = Benchmark("pytorch_dataset_timer")
+        b = Benchmark("[main.py] pytorch_dataset_timer")
         b.start_timer()
         # Create the Dataset Object
-        pytorch_dataset = emoMusicPTDataset(dataset_root=music_dataset_path, slice_mode=False)
-        print(f'\n***** main: emoMusicPT created*****\n\temoMusic slice_mode: {pytorch_dataset.slice_mode}\n\n')
+        pytorch_dataset = emoMusicPTDataset(dataset_root=music_dataset_path, slice_mode=False, env=run_config)
+        print(f'\n***** [main.py]: emoMusicPT created*****\n\temoMusic slice_mode: {pytorch_dataset.slice_mode}\n\n')
         # Make Train/Test splits indexes (at song level) -> maintain the order inside the song
         test_frac = 0.1
         train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
-        print(f'type train_indexes {type(train_indexes)}\ntype test_indexes {type(test_indexes)}')
+
         # Defines Dataloaders
         train_set = emoMusicPTSubset(pytorch_dataset, train_indexes)
         test_set = emoMusicPTSubset(pytorch_dataset, test_indexes)
-        print(f'\n***** main: emoMusicPTSubset for train/test created *****\n\n')
+        print(f'\n***** [main.py]: emoMusicPTSubset for train/test created *****\n\n')
 
         train_DataLoader = emoMusicPTDataLoader(train_set, batch_size=32, shuffle=False, num_workers=1)
         test_DataLoader = emoMusicPTDataLoader(test_set, batch_size=32, shuffle=False, num_workers=1)
-        print(f'\n***** main: emoMusicPTDataLoader for train/test created *****\n\n')
+        print(f'\n***** [main.py]: emoMusicPTDataLoader for train/test created *****\n\n')
         b.end_timer()
 
-        b = Benchmark("pytorch_model_timer")
+        b = Benchmark("[main.py] pytorch_model_timer")
+        b.start_timer()
         first_model = TorchModel(pytorch_dataset, train_DataLoader, test_DataLoader, save_dir_root=save_dir_root, n_classes=pytorch_dataset.num_classes)
+        b.end_timer()
 
+        b = Benchmark("[main.py] Runner creation")
         runner = Runner(first_model)
         exit_code = runner.train()
+        b.end_timer()
 
         if exit_code == runner.SUCCESS:
-            print('[main] Training Done!')
+            print(f'[main.py] Training Done! exit_code: {exit_code} -> SUCCESS')
         elif exit_code == runner.FAILURE:
-            print('[main] Training Failed!')
+            print(f'[main.py] Training Failed! exit_code: {exit_code} -> FAILURE')
         else:
-            print(f'[main] Training returned with a not expected exit code {exit_code}')
+            print(f'[main.py] Training returned with a not expected exit code {exit_code} -> unknown')
 
     # %%
     sys.exit(0)

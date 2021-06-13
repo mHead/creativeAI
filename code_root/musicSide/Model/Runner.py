@@ -1,7 +1,9 @@
 import os, sys
 from ..Model.TorchModel import TorchModel
 from ..DatasetMusic2emotion.tools import utils as u
+from .Benchmark import Benchmark
 import torch
+import numpy as np
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -11,7 +13,7 @@ from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataLoader, emoMusicPTSu
 
 TrainingSettings = {
     "batch_size": 32,
-    "epochs": 200,
+    "epochs": 50,
     "learning_rate": 0.0001,
     "stopping_rate": 1e-5,
     "weight_decay": 1e-6,
@@ -59,10 +61,13 @@ class Runner(object):
         self.tensorboard_outs_path = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('tensorboard_outs'))
         self.models_save_dir = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('save_directory'))
         # Write the graph to be read on Tensorboard
-        #self.writer = SummaryWriter(self.tensorboard_outs_path)
-        #example = self.model.emoMusicPTDataset[0]
-        #self.writer.add_graph(self.model, example[0].reshape(1, 1, 22050))
-        #self.writer.close()
+        self.writer = SummaryWriter(self.tensorboard_outs_path)
+        example = self.model.emoMusicPTDataset[0]
+        if self.model.emoMusicPTDataset.slice_mode:
+            self.writer.add_graph(self.model, example[0].reshape(1, 1, 22050))
+        else:
+            self.writer.add_graph(self.model, example[0].reshape(1, 1, 1345050))
+        self.writer.close()
         # Defining aspects of the model lifecycle
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,
                                           weight_decay=self.settings.get('weight_decay'))
@@ -73,7 +78,7 @@ class Runner(object):
         self.criterion = torch.nn.CrossEntropyLoss(weight=None, size_average=None, ignore_index=-100, reduce=None,
                                                    reduction='mean')
 
-    def run(self, dataloader, mode='train', slice_mode=False):
+    def run(self, dataloader, current_epoch, mode='train', slice_mode=False):
         """
         Called one time for each epoch. It has to parse the whole dataset each time.
         :param dataloader:
@@ -82,7 +87,7 @@ class Runner(object):
         :return:
         """
         self.model.train() if mode == 'train' else self.model.eval()
-
+        print(f'[Runner.run()] call for epoch: {current_epoch} / {self.settings.get("epochs")}')
         if slice_mode:
             '''
             input of conv1D is (1, 1, 22050) take prediction for every slice (61 in one song)
@@ -145,8 +150,8 @@ class Runner(object):
                 epoch_loss += score.size(0) * loss.item()
                 epoch_acc += score.size(0) * acc
 
-            epoch_loss = epoch_loss / len(dataloader.dataset)
-            epoch_acc = epoch_acc / len(dataloader.dataset)
+            epoch_loss = epoch_loss / len(dataloader)
+            epoch_acc = epoch_acc / len(dataloader)
 
         return epoch_loss, epoch_acc
 
@@ -168,34 +173,51 @@ class Runner(object):
         self.train_policies = TrainingPolicies
         self.save_policies = TrainSavingsPolicies
 
+        t = Benchmark("[Runner] train call")
+        print(f'Starting loop for {self.settings.get("epochs")} epochs')
+        t.start_timer()
+
+        train_losses = np.zeros(self.settings.get('epochs'))
+        train_accuracies = np.zeros(self.settings.get('epochs'))
+
         if self.model.emoMusicPTDataset.slice_mode:
             for epoch in range(self.settings.get('epochs')):
-                train_loss, train_acc = self.run(self.model.train_dataloader, mode='train', slice_mode=True)
+                train_loss, train_acc = self.run(self.model.train_dataloader, epoch+1, mode='train', slice_mode=True)
+                # Store epoch stats
+                train_losses[epoch] = train_loss
+                train_accuracies[epoch] = train_acc
 
-                print(f'Epoch: {epoch + 1 / self.settings.get("epochs")}\n'
-                      f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {train_acc:.4f}')
-                train_done = True
+                print(f'[Runner.train()]Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
+                      f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
+
                 if self.early_stop(train_loss, epoch + 1):
-                    train_done = True
                     break
-
+            train_done = True
         else:
             for epoch in range(self.settings.get('epochs')):
-                train_loss, train_acc = self.run(self.model.train_dataloader, 'train', slice_mode=False)
+                train_loss, train_acc = self.run(self.model.train_dataloader, epoch+1, 'train', slice_mode=False)
+                # Store epoch stats
+                train_losses[epoch] = train_loss
+                train_accuracies[epoch] = train_acc
 
-                print(f'Epoch: {epoch + 1 / self.settings.get("epochs")}\n'
-                      f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {train_acc:.4f}')
-                train_done = True
+                print(f'[Runner.train()]Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
+                      f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
+
                 if self.early_stop(train_loss, epoch + 1):
-                    train_done = True
                     break
+            train_done = True
 
         if train_done:
             print(f'[Runner: {self}] Training finished. Going to test the network')
+            #TODO: call here methods to print loss and accuracy among this training phase
+            best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
+            print(f'[Runner.train() -> train_done!]\n\tBest accuracy: {best_acc} at epoch {at_epoch}\n')
+            t.end_timer()
             test_loss, test_acc = self.run(self.model.test_dataloader, 'eval')
             print(f'Test Accuracy: {(100 * test_acc):.4f}\nTest Loss: {test_loss:.4f}')
             return self.SUCCESS
         else:
+            t.end_timer()
             return self.FAILURE
 
     def eval(self):
@@ -207,9 +229,9 @@ class Runner(object):
         if self.model.emoMusicPTDataset.slice_mode:
 
             for epoch in range(self.settings.get('epochs')):
-                test_loss, test_acc = self.run(self.model.train_dataloader, mode='eval', slice_mode=True)
+                test_loss, test_acc = self.run(self.model.train_dataloader, epoch+1, mode='eval', slice_mode=True)
 
-                print(f'Epoch: {epoch + 1 / self.settings.get("epochs")}\n'
+                print(f'[Runner.eval()]Epoch: {epoch + 1 / self.settings.get("epochs")}\n'
                       f'\tTrain Loss: {test_loss:.4f}\n\tTrain Acc: {test_acc:.4f}')
                 eval_done = True
                 if self.early_stop(test_loss, epoch + 1):
@@ -218,9 +240,9 @@ class Runner(object):
 
         else:
             for epoch in range(self.setting.get('epochs')):
-                test_loss, test_acc = self.run(self.model.train_dataloader, 'eval', slice_mode=False)
+                test_loss, test_acc = self.run(self.model.train_dataloader, epoch+1, 'eval', slice_mode=False)
 
-                print(f'Epoch: {epoch + 1 / self.settings.get("epochs")}\n'
+                print(f'[Runner.eval()]Epoch: {epoch + 1 / self.settings.get("epochs")}\n'
                       f'\tTrain Loss: {test_loss:.4f}\n\tTrain Acc: {test_loss:.4f}')
                 eval_done = True
                 print(f'Test Accuracy: {(100 * test_acc):.4f}\nTest Loss: {test_acc:.4f}')
