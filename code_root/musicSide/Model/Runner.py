@@ -1,6 +1,7 @@
 import os, sys
 from ..Model.TorchModel import TorchModel
 from ..DatasetMusic2emotion.tools import utils as u
+import datetime
 from .Benchmark import Benchmark
 import torch
 import numpy as np
@@ -8,12 +9,20 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from ..Model.TorchModel import TorchModel
+import matplotlib.pyplot as plt
 from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataLoader, emoMusicPTSubset, emoMusicPTDataset
 
-
+PlotColors = {
+    'train_loss': '#30A666',   # verde scuro
+    'test_loss': '#38F58F',    # verde chiaro
+    'train_acc': '#A8251E',    # rosso scuro
+    'test_acc': '#F55750',     # rosso chiaro
+    'eval_loss': '#213E46',    # blu scuro
+    'eval_acc': '#B1E2F0'      # azzurro
+}
 TrainingSettings = {
     "batch_size": 32,
-    "epochs": 50,
+    "epochs": 4,
     "learning_rate": 0.0001,
     "stopping_rate": 1e-5,
     "weight_decay": 1e-6,
@@ -30,6 +39,7 @@ TrainingPolicies = {
 }
 
 TrainSavingsPolicies = {
+    "plot_save_dir": 'pytorch_outs/plots',
     "save_directory": 'pytorch_outs/best_models',
     "tensorboard_outs": 'pytorch_outs/tb_outputs',
     "monitor": 'val_categorical_accuracy',
@@ -209,7 +219,8 @@ class Runner(object):
 
         if train_done:
             print(f'[Runner: {self}] Training finished. Going to test the network')
-            #TODO: call here methods to print loss and accuracy among this training phase
+            # Print training statistics
+            self.plot_scatter_training_stats(train_losses, train_accuracies, self.settings.get('epochs'))
             best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
             print(f'[Runner.train() -> train_done!]\n\tBest accuracy: {best_acc} at epoch {at_epoch}\n')
             t.end_timer()
@@ -256,3 +267,30 @@ class Runner(object):
         else:
             return self.FAILURE
 
+
+    def plot_scatter_training_stats(self, losses, accuracies, epochs):
+        n_rows = 1
+        n_cols = 2
+        epochs_axes = np.arange(1, epochs+1, 1)
+        fig, axes = plt.subplots(1, 2) #1 row 2 columns -> 2 plots in a row
+        fig.suptitle("Training curves")
+        measures = ['Loss', 'Accuracy']
+        for col in range(n_cols):
+            ax = axes[col]
+            if col == 0:
+                ax.plot(epochs_axes, losses, PlotColors.get('train_loss'), label=measures[col])
+                ax.set_title(f'Train Loss')
+                ax.set_xlabel('epochs')
+                ax.set_ylabel('Loss value')
+                ax.legend(loc='upper left', scatterpoints=1, frameon=True)
+            else:
+                ax.plot(epochs_axes, accuracies * 100, PlotColors.get('train_acc'), label=measures[col])
+                ax.set_title(f'Train Accuracies')
+                ax.set_xlabel('epochs')
+                ax.set_ylabel('Accuracies (%)')
+                ax.legend(loc='upper left', scatterpoints=1, frameon=True)
+        plt.tight_layout()
+        save_path = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('plot_save_dir'))
+        print(f'Saving..... Train Curves\tto {save_path + "_timestamp_train_curve.png"}\n')
+        d = datetime.datetime.now()
+        plt.savefig(save_path + f"{self.model.name}_{u.format_timestamp(d)}_train_curves.png")

@@ -527,6 +527,7 @@ def check_lengths(array):
 def format_timestamp(current_timestamp: datetime):
     formatted = current_timestamp.date().__str__() + "_" + current_timestamp.time().__str__()
     formatted = formatted[:19]
+    formatted = formatted.replace(':', '-')
     return formatted
 
 
