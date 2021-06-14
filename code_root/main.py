@@ -148,6 +148,7 @@ if __name__ == '__main__':
         b.end_timer()
 
         b = Benchmark("[main.py] Runner creation")
+        b.start_timer()
         runner = Runner(first_model)
         exit_code = runner.train()
         b.end_timer()
