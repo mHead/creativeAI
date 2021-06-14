@@ -124,7 +124,7 @@ class Runner(object):
                 loss = self.criterion(score, label)
                 acc = self.accuracy(score, label)
 
-                if mode is 'train':
+                if mode == 'train':
                     loss.backward()
                     self.optimizer.step()
                     self.optimizer.zero_grad()
@@ -152,7 +152,7 @@ class Runner(object):
                 loss = self.criterion(score, dominant_label)
                 acc = self.accuracy(score, dominant_label)
 
-                if mode is 'train':
+                if mode == 'train':
                     loss.backward()
                     self.optimizer.step()
                     self.optimizer.zero_grad()
