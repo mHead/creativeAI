@@ -24,7 +24,7 @@ from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusicPTSubse
 CNNHyperParams = {
     "kernel_size": 220,
     "kernel_shift": 110,
-    "kernel_features_maps": 8
+    "kernel_features_maps": 8*10
 }
 
 
@@ -61,12 +61,16 @@ class TorchModel(Module):
         print(f'[TorchModel.py]{self.name} will run on the following device: {self.device}')
 
         # Network definition
-        self.first_conv1d = nn.Conv1d(in_channels=1, out_channels=self.kernel_features_maps,
+        self.conv1 = nn.Sequential(
+            nn.Conv1d(in_channels=1, out_channels=self.kernel_features_maps,
                                       kernel_size=self.kernel_size, stride=self.kernel_shift,
-                                      bias=False)
-        self.ReLU = nn.ReLU()
-        self.batch_norm = nn.BatchNorm1d(CNNHyperParams.get('kernel_features_maps'))
-        self.dropout = nn.Dropout(0.25)
+                                      bias=False),
+            nn.ReLU(),
+            nn.BatchNorm1d(CNNHyperParams.get('kernel_features_maps')),
+            #nn.MaxPool1d(kernel_size=self.kernel_size, stride=self.kernel_shift),
+            nn.Dropout(0.25)
+        )
+
         self.flatten = nn.Flatten()
 
         self.clf_head = nn.Linear(self.conv1d_output_dim, self.num_classes, bias=False)
@@ -80,10 +84,7 @@ class TorchModel(Module):
             nn.init.xavier_uniform_(layer.weight)
 
     def forward(self, x):
-        x = self.first_conv1d(x)
-        x = self.ReLU(x)
-        x = self.batch_norm(x)
-        x = self.dropout(x)
+        x = self.conv1(x)
         flatten = self.flatten(x)
         logits = self.clf_head(flatten)
 

@@ -22,9 +22,9 @@ PlotColors = {
 }
 TrainingSettings = {
     "batch_size": 32,
-    "epochs": 4,
-    "learning_rate": 0.0001,
-    "stopping_rate": 1e-5,
+    "epochs": 200,
+    "learning_rate": 0.00001,
+    "stopping_rate": 1e-7,
     "weight_decay": 1e-6,
     "momentum": 0.9
 }
