@@ -141,7 +141,7 @@ class Runner(object):
             - pass the song_index and retrieve the whole song
             '''
             epoch_loss = 0.0
-            epoch_acc = 0.0
+            epoch_acc_running_corrects = 0.0
 
             model = u.set_device(self.model, self.device)
 
@@ -150,7 +150,7 @@ class Runner(object):
                 score, flatten = self.model(song_data)
 
                 loss = self.criterion(score, dominant_label)
-                acc = self.accuracy(score, dominant_label)
+                epoch_acc_running_corrects += self.accuracy(score, dominant_label)
 
                 if mode == 'train':
                     loss.backward()
@@ -158,10 +158,9 @@ class Runner(object):
                     self.optimizer.zero_grad()
 
                 epoch_loss += score.size(0) * loss.item()
-                epoch_acc += score.size(0) * acc
 
-            epoch_loss = epoch_loss / len(dataloader)
-            epoch_acc = epoch_acc / len(dataloader)
+            epoch_loss = epoch_loss / float(len(dataloader))
+            epoch_acc = epoch_acc_running_corrects / float(len(dataloader))
 
         return epoch_loss, epoch_acc
 
@@ -172,9 +171,9 @@ class Runner(object):
         return stop
 
     def accuracy(self, source, target):
-        source = source.max(1)[1].long().cpu()
+        _, preds = torch.max(source, 1)
         target = target.long().cpu()
-        correct = (source == target).sum().item()
+        correct = torch.sum(preds == target).data.item()
         return correct / float(source.size(0))
 
     def train(self):
@@ -203,6 +202,7 @@ class Runner(object):
                 if self.early_stop(train_loss, epoch + 1):
                     break
             train_done = True
+
         else:
             for epoch in range(self.settings.get('epochs')):
                 train_loss, train_acc = self.run(self.model.train_dataloader, epoch+1, 'train', slice_mode=False)
