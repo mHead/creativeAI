@@ -22,7 +22,7 @@ PlotColors = {
 }
 TrainingSettings = {
     "batch_size": 32,
-    "epochs": 200,
+    "epochs": 12,
     "learning_rate": 0.00001,
     "stopping_rate": 1e-7,
     "weight_decay": 1e-6,
@@ -91,6 +91,7 @@ class Runner(object):
     def run(self, dataloader, current_epoch, mode='train', slice_mode=False):
         """
         Called one time for each epoch. It has to parse the whole dataset each time.
+        :param current_epoch:
         :param dataloader:
         :param mode: train or eval
         :param slice_mode: True or False
@@ -124,6 +125,9 @@ class Runner(object):
                 loss = self.criterion(score, label)
                 acc = self.accuracy(score, label)
 
+                self.print_prediction(current_epoch, song_id, filename, label, score)
+
+
                 if mode == 'train':
                     loss.backward()
                     self.optimizer.step()
@@ -146,16 +150,24 @@ class Runner(object):
             model = u.set_device(self.model, self.device)
 
             for batch, (song_data, song_id, filename, dominant_label, coords) in enumerate(dataloader):
+                # clear gradients
+                if mode == 'train':
+                    self.optimizer.zero_grad()
                 # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
+                # compute outputs
                 score, flatten = self.model(song_data)
+
+                # print prediction info about first, second and every 50 epochs
+                # self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
 
                 loss = self.criterion(score, dominant_label)
                 epoch_acc_running_corrects += self.accuracy(score, dominant_label)
 
+
                 if mode == 'train':
                     loss.backward()
                     self.optimizer.step()
-                    self.optimizer.zero_grad()
+                    # self.optimizer.zero_grad()
 
                 epoch_loss += score.size(0) * loss.item()
 
@@ -183,7 +195,7 @@ class Runner(object):
         self.save_policies = TrainSavingsPolicies
 
         t = Benchmark("[Runner] train call")
-        print(f'Starting loop for {self.settings.get("epochs")} epochs')
+        print(f'Starting training loop for {self.settings.get("epochs")} epochs')
         t.start_timer()
 
         train_losses = np.zeros(self.settings.get('epochs'))
@@ -191,6 +203,7 @@ class Runner(object):
 
         if self.model.emoMusicPTDataset.slice_mode:
             for epoch in range(self.settings.get('epochs')):
+                print(f'[Runner.run(train_dl, {epoch+1}, slice_mode=True)] called by Runner.train()')
                 train_loss, train_acc = self.run(self.model.train_dataloader, epoch+1, mode='train', slice_mode=True)
                 # Store epoch stats
                 train_losses[epoch] = train_loss
@@ -205,12 +218,13 @@ class Runner(object):
 
         else:
             for epoch in range(self.settings.get('epochs')):
+                print(f'[Runner.run(train_dl, {epoch+1}, slice_mode=False)] called by Runner.train()')
                 train_loss, train_acc = self.run(self.model.train_dataloader, epoch+1, 'train', slice_mode=False)
                 # Store epoch stats
                 train_losses[epoch] = train_loss
                 train_accuracies[epoch] = train_acc
 
-                print(f'[Runner.train()]Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
+                print(f'[Runner.train()] Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
                       f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
 
                 if self.early_stop(train_loss, epoch + 1):
@@ -220,12 +234,10 @@ class Runner(object):
         if train_done:
             print(f'[Runner: {self}] Training finished. Going to test the network')
             # Print training statistics
-            self.plot_scatter_training_stats(train_losses, train_accuracies, self.settings.get('epochs'))
+            self.plot_scatter_training_stats(train_losses, train_accuracies, self.settings.get('epochs'), mode='train')
             best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
             print(f'[Runner.train() -> train_done!]\n\tBest accuracy: {best_acc} at epoch {at_epoch}\n')
             t.end_timer()
-            test_loss, test_acc = self.run(self.model.test_dataloader, 'eval')
-            print(f'Test Accuracy: {(100 * test_acc):.4f}\nTest Loss: {test_loss:.4f}')
             return self.SUCCESS
         else:
             t.end_timer()
@@ -237,60 +249,87 @@ class Runner(object):
         self.train_policies = TrainingPolicies
         self.save_policies = TrainSavingsPolicies
 
+        t = Benchmark("[Runner] eval call")
+        print(f'Starting evaluation for 1 epoch')
+        t.start_timer()
+
         if self.model.emoMusicPTDataset.slice_mode:
-
-            for epoch in range(self.settings.get('epochs')):
-                test_loss, test_acc = self.run(self.model.train_dataloader, epoch+1, mode='eval', slice_mode=True)
-
-                print(f'[Runner.eval()]Epoch: {epoch + 1 / self.settings.get("epochs")}\n'
-                      f'\tTrain Loss: {test_loss:.4f}\n\tTrain Acc: {test_acc:.4f}')
-                eval_done = True
-                if self.early_stop(test_loss, epoch + 1):
-                    eval_done = True
-                    break
+            print(f'[Runner.run(test_dl, 1, slice_mode=True)] called by Runner.eval()')
+            test_loss, test_acc = self.run(self.model.test_dataloader, 1, mode='eval', slice_mode=True)
+            eval_done = True
 
         else:
-            for epoch in range(self.setting.get('epochs')):
-                test_loss, test_acc = self.run(self.model.train_dataloader, epoch+1, 'eval', slice_mode=False)
-
-                print(f'[Runner.eval()]Epoch: {epoch + 1 / self.settings.get("epochs")}\n'
-                      f'\tTrain Loss: {test_loss:.4f}\n\tTrain Acc: {test_loss:.4f}')
-                eval_done = True
-                print(f'Test Accuracy: {(100 * test_acc):.4f}\nTest Loss: {test_acc:.4f}')
-                if self.early_stop(test_loss, epoch + 1):
-                    eval_done = True
-                    break
+            print(f'[Runner.run(test_dl, 1, slice_mode=False)] called by Runner.eval()')
+            test_loss, test_acc = self.run(self.model.test_dataloader, 1, 'eval', slice_mode=False)
+            eval_done = True
 
         if eval_done:
-            print(f'[Runner: {self}] Training finished. Going to test the network')
+            print(f'[Runner.eval(): {self}] Evaluation on test set finished.')
+            t.end_timer()
+            print(f'[Runner.eval()]Epoch: 1/1\n'
+                  f'\tTest Loss: {test_loss:.4f}\n\tTest Acc: {(100 * test_acc):.4f} %')
             return self.SUCCESS
         else:
             return self.FAILURE
 
-
-    def plot_scatter_training_stats(self, losses, accuracies, epochs):
+    def plot_scatter_training_stats(self, losses, accuracies, epochs, mode=None):
         n_rows = 1
         n_cols = 2
         epochs_axes = np.arange(1, epochs+1, 1)
         fig, axes = plt.subplots(1, 2) #1 row 2 columns -> 2 plots in a row
-        fig.suptitle("Training curves")
+        if mode == 'train':
+            fig.suptitle("Training curves")
+        elif mode == 'eval':
+            fig.suptitle("Testing curves")
+        else:
+            print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
+            sys.exit(self.FAILURE)
         measures = ['Loss', 'Accuracy']
         for col in range(n_cols):
             ax = axes[col]
             if col == 0:
-                ax.plot(epochs_axes, losses, PlotColors.get('train_loss'), label=measures[col])
-                ax.set_title(f'Train Loss')
+                if mode == 'train':
+                    ax.plot(epochs_axes, losses, PlotColors.get('train_loss'), label=measures[col])
+                    ax.set_title(f'Train Loss')
+                elif mode == 'eval':
+                    ax.plot(epochs_axes, losses, PlotColors.get('test_loss'), label=measures[col])
+                    ax.set_title(f'Test Loss')
+                else:
+                    print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
+                    sys.exit(self.FAILURE)
                 ax.set_xlabel('epochs')
                 ax.set_ylabel('Loss value')
                 ax.legend(loc='upper left', scatterpoints=1, frameon=True)
             else:
-                ax.plot(epochs_axes, accuracies * 100, PlotColors.get('train_acc'), label=measures[col])
-                ax.set_title(f'Train Accuracies')
+                if mode == 'train':
+                    ax.plot(epochs_axes, accuracies * 100, PlotColors.get('train_acc'), label=measures[col])
+                    ax.set_title(f'Train Accuracies')
+                elif mode == 'eval':
+                    ax.plot(epochs_axes, accuracies * 100, PlotColors.get('test_acc'), label=measures[col])
+                    ax.set_title(f'Test Accuracies')
+                else:
+                    print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
+                    sys.exit(self.FAILURE)
+
                 ax.set_xlabel('epochs')
                 ax.set_ylabel('Accuracies (%)')
                 ax.legend(loc='upper left', scatterpoints=1, frameon=True)
         plt.tight_layout()
         save_path = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('plot_save_dir'))
-        print(f'Saving..... Train Curves\tto {save_path + "_timestamp_train_curve.png"}\n')
-        d = datetime.datetime.now()
-        plt.savefig(save_path + f"{self.model.name}_{u.format_timestamp(d)}_train_curves.png")
+        if mode == 'train':
+            print(f'Saving..... Train Curves\tto {save_path + "_timestamp_train_curve.png"}\n')
+            d = datetime.datetime.now()
+            plt.savefig(save_path + f"{self.model.name}_{u.format_timestamp(d)}_train_curves.png")
+        elif mode == 'eval':
+            print(f'Saving..... Test Curves\tto {save_path + "_timestamp_test_curve.png"}\n')
+            d = datetime.datetime.now()
+            plt.savefig(save_path + f"{self.model.name}_{u.format_timestamp(d)}_test_curves.png")
+        else:
+            print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
+            sys.exit(self.FAILURE)
+
+    def print_prediction(self, current_epoch, song_id, filename, label, score):
+        if current_epoch - 1 == 0 or (current_epoch - 1) % 20 == 0:
+            print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id} filename: {filename}')
+            _, preds = torch.max(score, 1)
+            print(f'\tGround Truth label: {label}\n\tPredicted:{preds}')

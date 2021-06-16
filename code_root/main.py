@@ -73,6 +73,12 @@ if not os.path.exists(save_dir_root):
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
+modelVersions = {
+    0: 'v0',
+    1: 'v1',
+    2: 'v2'
+}
+
 if __name__ == '__main__':
 
     if verbose:
@@ -123,6 +129,7 @@ if __name__ == '__main__':
 
     # %% PyTorch Main
     if pytorch_:
+
         b = Benchmark("[main.py] pytorch_dataset_timer")
         b.start_timer()
         # Create the Dataset Object
@@ -144,7 +151,7 @@ if __name__ == '__main__':
 
         b = Benchmark("[main.py] pytorch_model_timer")
         b.start_timer()
-        first_model = TorchModel(pytorch_dataset, train_DataLoader, test_DataLoader, save_dir_root=save_dir_root, n_classes=pytorch_dataset.num_classes)
+        first_model = TorchModel(pytorch_dataset, train_DataLoader, test_DataLoader, save_dir_root=save_dir_root, version=modelVersions.get(0))
         b.end_timer()
 
         b = Benchmark("[main.py] Runner creation")
@@ -152,9 +159,19 @@ if __name__ == '__main__':
         runner = Runner(first_model)
         exit_code = runner.train()
         b.end_timer()
-
+        del b
         if exit_code == runner.SUCCESS:
             print(f'[main.py] Training Done! exit_code: {exit_code} -> SUCCESS')
+            b = Benchmark("[main.py] Test network")
+            b.start_timer()
+            exit_code = runner.eval()
+            b.end_timer()
+            if exit_code == runner.SUCCESS:
+                print(f'[main.py] Evaluation of Test set Done! exit_code: {exit_code} -> SUCCESS')
+            elif exit_code == runner.FAILURE:
+                print(f'[main.py] Evaluation Failed! exit_code: {exit_code} -> FAILURE')
+            else:
+                print(f'[main.py] Evaluation returned with a not expected exit code {exit_code} -> unknown')
         elif exit_code == runner.FAILURE:
             print(f'[main.py] Training Failed! exit_code: {exit_code} -> FAILURE')
         else:
