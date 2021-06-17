@@ -22,11 +22,11 @@ PlotColors = {
 }
 TrainingSettings = {
     "batch_size": 32,
-    "epochs": 12,
+    "epochs": 200,
     "learning_rate": 0.00001,
     "stopping_rate": 1e-7,
     "weight_decay": 1e-6,
-    "momentum": 0.9
+    "momentum": 0.8
 }
 
 TrainingPolicies = {
@@ -126,7 +126,6 @@ class Runner(object):
                 acc = self.accuracy(score, label)
 
                 self.print_prediction(current_epoch, song_id, filename, label, score)
-
 
                 if mode == 'train':
                     loss.backward()

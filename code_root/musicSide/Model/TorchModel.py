@@ -25,7 +25,7 @@ from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusicPTSubse
 CNNHyperParams = {
     "kernel_size": 220,
     "kernel_shift": 110,
-    "kernel_features_maps": 8
+    "kernel_features_maps": 8 * 61
 }
 
 
