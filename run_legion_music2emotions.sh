@@ -3,11 +3,12 @@
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=6
 #SBATCH --partition=cuda
-#SBATCH --mem=16GB
+#SBATCH --mem=12GB
 #SBATCH --time=24:00:00
 #SBATCH --output=mus2emo_%j_out.txt
 #SBATCH --error=mus2emo_%j_err.txt
 
+ml purge
 #load modules
 ml nvidia/cudasdk/10.1
 ml intel/python/3/2019.4.088
@@ -41,7 +42,7 @@ else
 fi
 
 cd ./creativeAI || exit
-chmod +x run_legion_music2emotions.sh
+#chmod +x run_legion_music2emotions.sh
 
 cd ./code_root || exit
 

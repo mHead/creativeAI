@@ -33,7 +33,7 @@ argv = sys.argv[1:]
 print(f'[main.py] argv: {argv} type: {type(argv)}')
 
 repo_root = r''
-verbose = False
+verbose = True
 generate_csv = False
 pick_repo = False
 run_config = ''
@@ -65,7 +65,10 @@ image_data_root = os.path.join(repo_root, r'imageSide_root_data')
 code_root = os.path.join(repo_root, r'code_root')
 save_dir_root = os.path.join(repo_root, r'saves_dir')
 
-music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
+if run_config == 'legion':
+    music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed')
+else:
+    music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
 
 if not os.path.exists(save_dir_root):
     os.mkdir(save_dir_root)
