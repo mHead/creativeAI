@@ -6,5 +6,6 @@ ffmpeg
 sklearn
 torch
 torchaudio
+pydub
 
 

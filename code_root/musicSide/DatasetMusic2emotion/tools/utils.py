@@ -1,4 +1,5 @@
 # TODO: need for safer code
+import sys
 import os
 import re
 import numpy as np
@@ -11,8 +12,8 @@ import torch
 import torch.cuda as cuda
 import torch.nn as nn
 
-print(f'****\tmusicSide.DatasetMusic2emotion.tools.utils.py imported\t****\n')
-print(f'Using garbage collector with thresholds: {gc.get_threshold()}\n')
+#print(f'****\tmusicSide.DatasetMusic2emotion.tools.utils.py imported\t****\n')
+#print(f'Using garbage collector with thresholds: {gc.get_threshold()}\n')
 
 
 # cuda.init()
@@ -25,15 +26,8 @@ Ordinary users should not need this, as all of PyTorch’s CUDA methods automati
 Does nothing if the CUDA state is already initialized.
 '''
 # some print informations
-print(f'****\tTorchModel.py imported****\t****\n')
-print(f'Using torch version: {torch.__version__}')
+#print(f'****\tTorchModel.py imported****\t****\n')
 
-if cuda.is_available():
-    print(f'\t- GPUs available: {cuda.device_count()}')
-    print(f'\t- Current device index: {cuda.current_device()}')
-else:
-    print(f'\t- GPUs available: {cuda.device_count()}')
-    print(f'\t- Cuda is NOT available\n')
 
 runs_on = r'legion'
 save_files = False
@@ -79,9 +73,10 @@ try:
         from scipy.io.wavfile import write
         from scipy import interpolate
     else:
-        from scipy.io.wavfile import read
-        from scipy.io.wavfile import write
-        from scipy import interpolate
+        if 'scipy' not in sys.modules:
+            from scipy.io.wavfile import read
+            from scipy.io.wavfile import write
+            from scipy import interpolate
 except ImportError:
     print(f'{ImportError.__traceback__}')
 
@@ -421,6 +416,7 @@ def save_preprocessed_audios(audio_raw_files, wav_filenames, directory_to_save):
 # %% 2. Utilities
 
 def set_device(model, device):
+
     if type(device) is int:
         if device > 0:
             torch.cuda.set_device(device - 1)

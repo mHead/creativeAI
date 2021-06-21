@@ -1,11 +1,6 @@
 import os
 from ..musicSide.DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset
 
-music_data_root = os.path.join('Users/head/Documents/GitHub/creativeAI', r'musicSide_root_data')
-music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
-
-pytorch_dataset = emoMusicPTDataset(music_dataset_path, slice_mode=False)
-
 
 def test_getitem(dataset: emoMusicPTDataset, sample_idx):
     if not dataset.slice_mode:
@@ -25,6 +20,3 @@ def test_getitem(dataset: emoMusicPTDataset, sample_idx):
 
     return True
 
-
-if test_getitem(pytorch_dataset, 0):
-    pass

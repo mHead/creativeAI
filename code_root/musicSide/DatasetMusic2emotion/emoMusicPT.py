@@ -1,4 +1,3 @@
-import numpy as np
 import sys
 import torch
 import torchaudio
@@ -6,19 +5,20 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
 from ..DatasetMusic2emotion.tools import utils as u
+from ..DatasetMusic2emotion.tools import va2emotion as va2emo
 from sklearn.model_selection import StratifiedShuffleSplit
-
+from sklearn.model_selection import StratifiedKFold
+import numpy as np
 import re
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
 
-legion = False
-verbose = False
-
-_MULTI_LABELS_PER_SONG_CSV = r'[labels]emotion_average_dataset_csv/music_emotions_labels.csv'
-_SINGLE_LABEL_PER_SONG_CSV = r'[labels]emotion_average_dataset_csv/music_single_emotion_labels.csv'
+_MULTI_LABELS_PER_SONG_CSV = r'music_emotions_labels.csv'
+_SINGLE_LABEL_PER_SONG_CSV = r'music_single_emotion_labels.csv'
 _MUSIC_DATA_ROOT = r'musicSide_root_data'
 
+verbose = False
 
 _SAMPLE_RATE = 44100
 _N_SLICES_PER_SONG = 61
@@ -26,12 +26,20 @@ _SLICE_SIZE = 22050
 _SONG_SAMPLES_TOTAL_DURATION = _SLICE_SIZE * _N_SLICES_PER_SONG
 _N_CLASSES = 8
 
+SubsetsColors = {
+    'train_set': '#30A666',  # verde scuro
+    'test_set': '#A8251E',  # verde chiaro
+    'val_set': '#B1E2F0',  # rosso scuro
+}
+
 
 class emoMusicPTDataset(Dataset):
-    """
+    legion = False
+    colab = False
+    local = False
 
-    """
-    def __init__(self, dataset_root, slice_mode=False, env=''):
+    def __init__(self, slice_mode=False, env=None):
+        super().__init__()
         """
         This is a map-style dataset because it implements the __getitem__ and __len__ protocols
         it can be accessed as dataset[n] which read the idx-th sample and its corresponding label.
@@ -43,32 +51,36 @@ class emoMusicPTDataset(Dataset):
                 returns the whole song as a torch.Tensor([1, 1345050])
 
         """
-        super().__init__()
-
-        if env == 'legion':
-            self.run_conf = env
-            self._REPO_ROOT = r'/home/mtesta/creativeAI'
-            self._WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed'
+        if env is not None:
+            self._RUN_CONF = env.get('run_conf')
+            self._REPO_ROOT = env.get('repo_root')
+            self._CODE_ROOT = env.get('code_root')
+            self._AUDIO_PATH = env.get('dataset_root')
+            self._SONGID_DOMINANT_EMO_CSV = os.path.join(env.get('labels_root'), _SINGLE_LABEL_PER_SONG_CSV)
+            self._SONGID_EMOTIONS_CSV = os.path.join(env.get('labels_root'), _MULTI_LABELS_PER_SONG_CSV)
+            self._MUSIC_DATA_ROOT = env.get('music_data_root')
         else:
-            self.run_conf = env
-            self._REPO_ROOT = r'/Users/head/Documents/GitHub/creativeAI'
-            self._WAV_DIR_RELATIVE = r'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG'
+            print(f'Configuration Environment failed!')
+            sys.exit(-1)
 
-        self.name = 'emoMusicPT: Dataset wrapper for PyTorch'
+        if self._RUN_CONF == 'legion':
+            legion = True
+        elif self._RUN_CONF == 'colab':
+            colab = True
+        else:
+            local = True
+
+        self.name = 'emoMusicPT: pytorch Dataset wrapper'
         self.slice_mode = slice_mode
-        self.music_data_root = os.path.join(self._REPO_ROOT, _MUSIC_DATA_ROOT)
-        print(f'[emoMusicPTDataset.py]\n**** Creating {self.name} ****\n\trepo root: {self._REPO_ROOT}\n\tmusic data root: {self.music_data_root}\n\tslice_mode: {self.slice_mode}\n\n')
-
-
-        # PATHS for 2 csv + audio folder
-        self.song_id_dominant_emotion_csv_path = os.path.join(self.music_data_root, _SINGLE_LABEL_PER_SONG_CSV)
-        self.song_id_emotions_csv_path = os.path.join(self.music_data_root, _MULTI_LABELS_PER_SONG_CSV)
-        self.audio_path = os.path.join(self.music_data_root, self._WAV_DIR_RELATIVE)
         self.num_classes = _N_CLASSES
-        # Read from filesystem audio filenames + 2 csv
-        self.song_id_emotions_labels_frame = pd.read_csv(self.song_id_emotions_csv_path)
-        self.single_label_per_song_frame = pd.read_csv(self.song_id_dominant_emotion_csv_path)
-        wav_filenames = [f for f in os.listdir(self.audio_path) if not f.startswith('.')]
+        print(f'[emoMusicPTDataset.py]\t**** Creating {self.name} ****\n\trepo root: {self._REPO_ROOT}\n\tmusic data root: {self._MUSIC_DATA_ROOT}\n\tslice_mode: {self.slice_mode}\n')
+
+
+        # CSV path to pd.DataFrame
+        self.song_id_emotions_labels_frame = pd.read_csv(self._SONGID_EMOTIONS_CSV)
+        self.single_label_per_song_frame = pd.read_csv(self._SONGID_DOMINANT_EMO_CSV)
+
+        wav_filenames = [f for f in os.listdir(self._AUDIO_PATH) if not f.startswith('.')]
         wav_filenames.sort(key=lambda f: int(re.sub('\D', '', f)))
 
         # Actual data to refer
@@ -76,7 +88,7 @@ class emoMusicPTDataset(Dataset):
         del wav_filenames
         #self.labels_song_level = self.single_label_per_song_frame.loc[:, 'emotion_label']
         #self.labels_slice_level = self.song_id_emotions_labels_frame.loc[1:, self.song_id_emotions_labels_frame.columns != 'song_id']
-        self.labels_slice_level, self.song_ids, self.labels_song_level = u.extract_labels(self.song_id_emotions_csv_path)
+        self.labels_slice_level, self.song_ids, self.labels_song_level = u.extract_labels(self._SONGID_EMOTIONS_CSV)
 
         self.print_info()
 
@@ -142,7 +154,7 @@ class emoMusicPTDataset(Dataset):
             # now read audio associated
             filename = str(song_id)+'.wav'
             if filename in self.wav_filenames:
-                filename_path = os.path.join(self.audio_path, filename)
+                filename_path = os.path.join(self._AUDIO_PATH, filename)
             else:
                 print(f'{filename} does not exist in path')
                 sys.exit(-1)
@@ -189,7 +201,7 @@ class emoMusicPTDataset(Dataset):
             # now read audio associated
             # filename = str(song_id) + '.wav'
             if len(filename) > 0:
-                filename_path = os.path.join(self.audio_path, filename)
+                filename_path = os.path.join(self._AUDIO_PATH, filename)
             else:
                 print(f'{filename} does not exist in path')
                 sys.exit(-1)
@@ -214,24 +226,104 @@ class emoMusicPTDataset(Dataset):
     def stratified_song_level_split(self, test_fraction):
         splitter = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=0)
         splits = splitter.split(self.wav_filenames, self.labels_song_level)
-
         train_index = []
         test_index = []
         for train_index, test_index in splits:
             print(f'[emoMusicPTDataset.py] TRAIN INDEX: {train_index} type: {type(train_index)} shape: {train_index.shape}')
             print(f'[emoMusicPTDataset.py] TEST INDEX: {test_index} type: {type(test_index)} shape: {test_index.shape}')
-        train_index.sort()
-        test_index.sort()
+        #train_index.sort()
+        #test_index.sort()
         print(f'\n[emoMusicPTDataset.py] type train_indexes {type(train_index)}\ntype test_indexes {type(test_index)}')
         return train_index, test_index
 
+    def stratifiedKFold_song_level(self, n_splits, shuffle, random_state=None):
+        splitter = StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+
+
+
     def print_info(self):
         print(f'Name: {self.name}\nData_root:\n'
-              f'\tAudio: {self.audio_path}\n'
-              f'\tLabels: {self.song_id_dominant_emotion_csv_path}\n\t{self.song_id_emotions_csv_path}\n'
+              f'\tAudio: {self._AUDIO_PATH}\n'
+              f'\tLabels: {self._SONGID_DOMINANT_EMO_CSV}\n\t{self._SONGID_EMOTIONS_CSV}\n'
               f'self.labels_song_level: \n{self.labels_song_level}\ntype: {type(self.labels_song_level)}\nlen: {len(self.labels_song_level)}\n\n '
               f'self.labels_slice_level: \n{self.labels_slice_level}\ntype: {type(self.labels_slice_level)}\nlen: {len(self.labels_slice_level)}\n\n'
               f'self.wav_filenames: \n{self.wav_filenames}\ntype: {type(self.wav_filenames)}\nlen: {len(self.wav_filenames)}\n\n')
+
+    def plot_indices_distribution(self, labels, train_indexes, test_indexes, val_indexes=None):
+        """
+        Collect distrubution per subset
+        """
+        train_emotion_distribuion = np.zeros(self.num_classes)
+        test_emotion_distribution = np.zeros(self.num_classes)
+
+
+        for train_index in train_indexes:
+            train_emotion_distribuion[labels[train_index]] += 1
+
+        for test_index in test_indexes:
+            test_emotion_distribution[labels[test_index]] += 1
+
+        if val_indexes is not None:
+            val_emotion_distribution = np.zeros(self.num_classes)
+            for val_index in val_indexes:
+                val_emotion_distribution[labels[test_index]] *= 1
+
+            assert all(val_emotion_distribution) > 0
+
+        assert all(train_emotion_distribuion) > 0 and all(test_emotion_distribution) > 0
+
+        # calculate percentiles
+        train_emotion_percentiles = np.zeros(self.num_classes, dtype=np.float32)
+        test_emotion_percentiles = np.zeros(self.num_classes, dtype=np.float32)
+        if val_indexes is not None:
+            val_emotion_percentiles = np.zeros(self.num_classes, dtype=np.float32)
+
+        for i in range(0, self.num_classes):
+            train_emotion_percentiles[i] = (train_emotion_distribuion[i] * 100) / sum(train_emotion_distribuion)
+            test_emotion_percentiles[i] = (test_emotion_distribution[i] * 100) / sum(test_emotion_distribution)
+            if val_indexes is not None:
+                val_emotion_percentiles[i] = (val_emotion_distribution[i] * 100) / sum(val_emotion_distribution)
+                assert all(sum(val_emotion_percentiles) == 100)
+
+        assert np.round(sum(train_emotion_percentiles)) == 100 and np.round(sum(test_emotion_percentiles)) == 100
+
+        n_rows = 1
+        n_cols = 2
+        if val_indexes is not None:
+            n_cols = 3
+
+        emotion_axes = np.arange(0, self.num_classes, 1)
+        fig, axes = plt.subplots(n_rows, n_cols)  # with (1, 2) -> 1 row 2 columns -> 2 plots in a row
+        fig.suptitle("Emotion distribution over splits")
+        for col in range(n_cols):
+            ax = axes[col]
+            if col == 0:
+                # ax.plot(emotion_axes, train_emotion_percentiles, SubsetsColors.get('train_set'), label="Emotion distribution over training set")
+                ax.bar(emotion_axes, train_emotion_percentiles, width=0.8, bottom=0, align='center', color=SubsetsColors.get('train_set'), tick_label=emotion_axes)
+                #for e in emotion_axes:
+                ax.set_xlabel('emotions')
+                ax.set_ylabel('Samples (%)')
+                ax.set_title(f'Train')
+            elif col == 1:
+                # ax.plot(emotion_axes, test_emotion_percentiles, SubsetsColors.get('test_set'), label="Emotion distribution over test set")
+                ax.bar(emotion_axes, test_emotion_percentiles, width=0.8, bottom=0, align='center', color=SubsetsColors.get('test_set'), tick_label=emotion_axes)
+                ax.set_xlabel('emotions')
+                ax.set_ylabel('Samples (%)')
+                ax.set_title(f'Test')
+            else:
+                ax.plot(emotion_axes, test_emotion_percentiles, SubsetsColors.get('val_set'), label="Emotion distribution over validation set")
+                ax.set_title(f'Test')
+                ax.set_xlabel('epochs')
+                ax.set_ylabel('Loss value')
+                ax.legend(loc='upper left', scatterpoints=1, frameon=True)
+
+                ax.set_xlabel('epochs')
+                ax.set_ylabel('Accuracies (%)')
+                ax.legend(loc='upper left', scatterpoints=1, frameon=True)
+
+        plt.tight_layout()
+        plt.show()
+
 
     def print_metadata(self, _metadata, src=None):
         if src:
@@ -245,9 +337,17 @@ class emoMusicPTDataset(Dataset):
         print(" - encoding:", _metadata.encoding)
         print()
 
+
+
+
+
+
+
+
+
+
+
 # %% emoMusicPTSubset
-
-
 class emoMusicPTSubset(Subset):
     """
     extends torch.utils.data.Subset(dataset, indices)
@@ -269,7 +369,7 @@ class emoMusicPTDataLoader(DataLoader):
     Extends torch.utils.data.DataLoader. Combines a dataset and a sampler and provides an iterable over the given dataset
     """
     def __init__(self, dataset: emoMusicPTSubset, batch_size=1, shuffle=False, num_workers=1):
-        super().__init__(dataset)
+        super().__init__(dataset, batch_size, shuffle, None, None, num_workers)
         '''   
         :param dataset:(torch.data.utils.Dataset) a map-style [implements __getitem__() and __len__()] or iterable-style
         

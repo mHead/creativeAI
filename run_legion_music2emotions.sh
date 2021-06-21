@@ -50,16 +50,14 @@ repo_root_legion="/home/mtesta/creativeAI"
 code="main.py"
 
 echo "installing modules"
-
-echo "pip install Tornado --user"
 pip install Tornado --user
-echo "pip install tensorflow --user"
 pip install tensorflow --user
-echo "pip install ffmpeg --user"
 pip install ffmpeg --user
-echo "pip install torch --user"
+pip install pydub --user
+pip install scipy --user
 pip install torch --user
 pip install torchaudio --user
+
 
 echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
 

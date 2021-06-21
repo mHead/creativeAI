@@ -8,10 +8,11 @@ from datetime import datetime
 
 import tensorflow as tf
 import keras
-print(f'****\tCNN_biGRU.py imported\t****\nTensorflow info tf.config.list_physical_devices("GPU"):\n')
-print(f'Using tensorflow version: {tf.__version__}')
-print(f'Using keras version: {tf.keras.__version__}')
-print(f'\tNum GPUs available: {len(tf.config.list_physical_devices("GPU"))}\n')
+
+#print(f'****\tCNN_biGRU.py imported\t****\nTensorflow info tf.config.list_physical_devices("GPU"):\n')
+#print(f'Using tensorflow version: {tf.__version__}')
+#print(f'Using keras version: {tf.keras.__version__}')
+#print(f'\tNum GPUs available: {len(tf.config.list_physical_devices("GPU"))}\n')
 
 from keras.models import Sequential
 from keras.models import model_from_json

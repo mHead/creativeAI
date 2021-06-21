@@ -31,7 +31,14 @@ class Benchmark:
         self.end = self.timer.perf_counter()
 
         self.elapsed = self.end - self.start
-        print(f'[{self.name}] stopped. Elapsed time: {self.elapsed:0.4f} seconds')
+        if self.elapsed > 60*60:
+            self.elapsed = (self.elapsed / 60) / 60
+            print(f'[{self.name}] stopped. Elapsed time: {self.elapsed:0.4f} hours')
+        elif self.elapsed > 60:
+            self.elapsed = self.elapsed / 60
+            print(f'[{self.name}] stopped. Elapsed time: {self.elapsed:0.4f} minutes')
+        else:
+            print(f'[{self.name}] stopped. Elapsed time: {self.elapsed:0.4f} seconds')
 
     def reset_timer(self):
         self.timer = time

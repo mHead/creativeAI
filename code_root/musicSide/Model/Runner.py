@@ -4,6 +4,7 @@ from ..DatasetMusic2emotion.tools import utils as u
 import datetime
 from .Benchmark import Benchmark
 import torch
+import torch.cuda as cuda
 import numpy as np
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
@@ -13,16 +14,16 @@ import matplotlib.pyplot as plt
 from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataLoader, emoMusicPTSubset, emoMusicPTDataset
 
 PlotColors = {
-    'train_loss': '#30A666',   # verde scuro
-    'test_loss': '#38F58F',    # verde chiaro
-    'train_acc': '#A8251E',    # rosso scuro
-    'test_acc': '#F55750',     # rosso chiaro
-    'eval_loss': '#213E46',    # blu scuro
-    'eval_acc': '#B1E2F0'      # azzurro
+    'train_loss': '#30A666',  # verde scuro
+    'test_loss': '#38F58F',  # verde chiaro
+    'train_acc': '#A8251E',  # rosso scuro
+    'test_acc': '#F55750',  # rosso chiaro
+    'eval_loss': '#213E46',  # blu scuro
+    'eval_acc': '#B1E2F0'  # azzurro
 }
 TrainingSettings = {
-    "batch_size": 32,
-    "epochs": 200,
+    "batch_size": 4,
+    "epochs": 40,
     "learning_rate": 0.00001,
     "stopping_rate": 1e-7,
     "weight_decay": 1e-6,
@@ -71,6 +72,7 @@ class Runner(object):
         self.tensorboard_outs_path = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('tensorboard_outs'))
         self.models_save_dir = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('save_directory'))
         # Write the graph to be read on Tensorboard
+        '''
         self.writer = SummaryWriter(self.tensorboard_outs_path)
         example = self.model.emoMusicPTDataset[0]
         if self.model.emoMusicPTDataset.slice_mode:
@@ -78,7 +80,7 @@ class Runner(object):
         else:
             self.writer.add_graph(self.model, example[0].reshape(1, 1, 1345050))
         self.writer.close()
-        # Defining aspects of the model lifecycle
+        '''
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,
                                           weight_decay=self.settings.get('weight_decay'))
         self.scheduler = ReduceLROnPlateau(self.optimizer, mode=self.train_policies.get('mode'),
@@ -98,6 +100,7 @@ class Runner(object):
         :return:
         """
         self.model.train() if mode == 'train' else self.model.eval()
+
         print(f'[Runner.run()] call for epoch: {current_epoch} / {self.settings.get("epochs")}')
         if slice_mode:
             '''
@@ -146,22 +149,27 @@ class Runner(object):
             epoch_loss = 0.0
             epoch_acc_running_corrects = 0.0
 
-            model = u.set_device(self.model, self.device)
+            # model = u.set_device(self.model, self.device)
 
             for batch, (song_data, song_id, filename, dominant_label, coords) in enumerate(dataloader):
-                # clear gradients
+                if cuda.is_available() and cuda.device_count() > 0:
+                    song_data = song_data.to('cuda')
+                    dominant_label = dominant_label.to('cuda')
+                    self.model = self.model.to('cuda')
+
+                    # clear gradients
                 if mode == 'train':
                     self.optimizer.zero_grad()
+
                 # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
                 # compute outputs
                 score, flatten = self.model(song_data)
 
                 # print prediction info about first, second and every 50 epochs
-                # self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
+                self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
 
                 loss = self.criterion(score, dominant_label)
                 epoch_acc_running_corrects += self.accuracy(score, dominant_label)
-
 
                 if mode == 'train':
                     loss.backward()
@@ -202,8 +210,8 @@ class Runner(object):
 
         if self.model.emoMusicPTDataset.slice_mode:
             for epoch in range(self.settings.get('epochs')):
-                print(f'[Runner.run(train_dl, {epoch+1}, slice_mode=True)] called by Runner.train()')
-                train_loss, train_acc = self.run(self.model.train_dataloader, epoch+1, mode='train', slice_mode=True)
+                print(f'[Runner.run(train_dl, {epoch + 1}, slice_mode=True)] called by Runner.train()')
+                train_loss, train_acc = self.run(self.model.train_dataloader, epoch + 1, mode='train', slice_mode=True)
                 # Store epoch stats
                 train_losses[epoch] = train_loss
                 train_accuracies[epoch] = train_acc
@@ -217,8 +225,8 @@ class Runner(object):
 
         else:
             for epoch in range(self.settings.get('epochs')):
-                print(f'[Runner.run(train_dl, {epoch+1}, slice_mode=False)] called by Runner.train()')
-                train_loss, train_acc = self.run(self.model.train_dataloader, epoch+1, 'train', slice_mode=False)
+                print(f'[Runner.run(train_dl, {epoch + 1}, slice_mode=False)] called by Runner.train()')
+                train_loss, train_acc = self.run(self.model.train_dataloader, epoch + 1, 'train', slice_mode=False)
                 # Store epoch stats
                 train_losses[epoch] = train_loss
                 train_accuracies[epoch] = train_acc
@@ -274,8 +282,8 @@ class Runner(object):
     def plot_scatter_training_stats(self, losses, accuracies, epochs, mode=None):
         n_rows = 1
         n_cols = 2
-        epochs_axes = np.arange(1, epochs+1, 1)
-        fig, axes = plt.subplots(1, 2) #1 row 2 columns -> 2 plots in a row
+        epochs_axes = np.arange(1, epochs + 1, 1)
+        fig, axes = plt.subplots(1, 2)  # 1 row 2 columns -> 2 plots in a row
         if mode == 'train':
             fig.suptitle("Training curves")
         elif mode == 'eval':
@@ -318,14 +326,18 @@ class Runner(object):
         if mode == 'train':
             print(f'Saving..... Train Curves\tto {save_path + "_timestamp_train_curve.png"}\n')
             d = datetime.datetime.now()
-            plt.savefig(save_path + f"{self.model.name}_{u.format_timestamp(d)}_train_curves.png")
+            plt.savefig(
+                save_path + f"{self.model.name}_{self.model.kernel_features_maps}_{u.format_timestamp(d)}_train_curves.png")
         elif mode == 'eval':
             print(f'Saving..... Test Curves\tto {save_path + "_timestamp_test_curve.png"}\n')
             d = datetime.datetime.now()
-            plt.savefig(save_path + f"{self.model.name}_{u.format_timestamp(d)}_test_curves.png")
+            plt.savefig(
+                save_path + f"{self.model.name}_{self.model.kernel_features_maps}_{u.format_timestamp(d)}_test_curves.png")
         else:
             print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
             sys.exit(self.FAILURE)
+
+        plt.show()
 
     def print_prediction(self, current_epoch, song_id, filename, label, score):
         if current_epoch - 1 == 0 or (current_epoch - 1) % 20 == 0:
