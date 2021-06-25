@@ -1,38 +1,43 @@
 # creativeAI
-Master's Degree Thesis, translate music language in the visive art language.
-Build up a complex DNN to generate images from music streaming, describing the music path trough the tempo.
+**Code is under deployment** <br>
+Master's Degree Thesis: translate music language in the visive art language. <br>
+Codebase created and maintained by Marco Testa. <br>
 
-Music and images do not belong to the same domain. 
+## Introduction
+Given:
+```
 - Music domain : D(music) = M
-- Image domain : D(image = I
+- Image domain : D(image) = I
+```
+The aim of the work is to build up a Deep Neural Network capable of translating from M to I.
 
-Offline work:
-Build up a Map<Emotion, List<RelatedColors>> so that we give just one color to the song (the predominant) , and we provide related colors for it 
-  build whatever in order to adjust the sensibility at run-time
-  
+## Datasets
+To get te most out of this repo, please __download__ contact me at marco_testa@icloud.com
 
-Music processing pipeline:
+## High-level pipeline
+```
+*.wav -> EmotionExtractor -> Generator -> painting
+```
+### Installation
+This code has been tested with Python 3.6.9, Pytorch 1.3.1, CUDA 10.0 on Ubuntu 16.04.
 
-*.wavFormat : piece -> Spectral Analysis -> get Features about pitch, rhythm and timbre and save statistics' bins
+Assuming some (potentially) virtual environment and __python 3x__ 
+```Console
+git clone https://github.com/mHead/creativeAI.git
+cd creativeAI
+pip install -e .
+```
+This will install the repo with all its dependencies (listed in setup.py) and will enable you to do things like:
+``` 
+from creativeAI.musicSide.Model import xx
+```
+(provided you add this creativeAI repo in your PYTHON-PATH. (Following example is for Colab) 
+```
+!echo $PYTHONPATH
+import os
+os.environ['PYTHONPATH'] += ":/content/creativeAI"
+!echo $PYTHONPATH
+```
 
-Dataset is: music, emotions[], predominant[]  // emotions and predominant values refere to a 15s bin? 
-
-Aim is:
-  Construct tempo/features grapichs and use as histograms to attribute a pair with a emotions thus colors ONE for each feature
-    i(timbre) + j(rhythm) + k(pitch) = (-)Grad(emotions)
-    
-    a(feature1) + b(feature2) + c(feature3) + .. + n(featureN) = 1; //NORMALIZATION /STANDARDIZATION, if = 100 will I have more sensitivy?
-
-
-## Step 1
-- Cercare Dataset di immagini e musica che possibilmente abbiano degli attributi shared
-- WikiArt?
-- ArtEmis: Affective Languege for Visual Art https://www.artemisdataset.org
-
-## Step 2
-- Creare un classificatore che classifichi le immagini con label pertinenti. (multi-class labels)
-- The Classificator C : learns from piece.spectralAnalysis with piece labeled each bin and **classifies piece.Emotions based on spectral analysis**
--    
-
-## Step 3 
-- Aggiungere tag sul dinamismo, legato al ritmo, cosa che nelle immagini non si trova
+### Pretrained Models
+   * [Music-to-Emotion](https://www.dropbox.com/)

@@ -84,8 +84,9 @@ CNNHyperParams = {
 
 
 class TorchModel(Module):
-    def __init__(self, dataset: emoMusicPTDataset, train_dl: emoMusicPTDataLoader, test_dl: emoMusicPTDataLoader, val_dl:emoMusicPTDataLoader,
-                 save_dir_root, version=None,
+    def __init__(self, dataset: emoMusicPTDataset, train_dl: emoMusicPTDataLoader, test_dl: emoMusicPTDataLoader,
+                 val_dl: emoMusicPTDataLoader,
+                 save_dir_root, version=None, n_gru=None,
                  **kwargs):
         super(TorchModel, self).__init__()
         """
@@ -106,7 +107,6 @@ class TorchModel(Module):
         self.num_classes = len(self.labelsDict)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
         # setting up input shape
         self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, self.ex0_label_coords = train_dl.dataset[0]
         self.input_shape = self.example_0.shape
@@ -117,6 +117,8 @@ class TorchModel(Module):
         self.kernel_shift = int(CNNHyperParams.get('kernel_shift'))
         print(f'[TorchModel.py]{self.name} will run on the following device: {self.device}')
 
+        self._nGRU_Layers = n_gru
+
         # Network definition
         self.conv1 = conv1DBlock(in_channels=1, out_channels=self.kernel_features_maps, kernel_size=self.kernel_size,
                                  kernel_stride=self.kernel_shift)
@@ -124,15 +126,26 @@ class TorchModel(Module):
         self.conv1._output_dim = self.conv1._L_output * self.kernel_features_maps
 
         if version == 'v1':
-            self.conv2 = conv1DBlock(in_channels=self.kernel_features_maps, out_channels=8, kernel_size=self.kernel_size, kernel_stride=self.kernel_shift)
+            self.conv2 = conv1DBlock(in_channels=self.kernel_features_maps, out_channels=8,
+                                     kernel_size=self.kernel_size, kernel_stride=self.kernel_shift)
             self.conv2._L_output = ((self.conv1._L_output - 1 * (self.kernel_size - 1) - 1) // self.kernel_shift) + 1
             self.conv2._output_dim = self.conv2._L_output * 8
             self.flatten = nn.Flatten()
             self.clf_fc = nn.Linear(self.conv2._output_dim, self.num_classes, bias=False)
+        elif version == 'v2' and self._nGRU_Layers is not None:
+            self.conv2 = conv1DBlock(in_channels=self.kernel_features_maps, out_channels=8,
+                                     kernel_size=self.kernel_size, kernel_stride=self.kernel_shift)
+            self.conv2._L_output = ((self.conv1._L_output - 1 * (self.kernel_size - 1) - 1) // self.kernel_shift) + 1
+            self.conv2._output_dim = self.conv2._L_output * 8
+            self.gruLayers = GRUBlock(input_size=self.conv2._L_output, hidden_size=self.conv2._L_output,
+                                      num_layers=self._nGRU_Layers,
+                                      batch_first=True, dropout=0, bidirectional=False)
+            self.flatten = nn.Flatten()
+            self.clf_fc = nn.Linear(self.gruLayers._OUTPUT_DIM, self.num_classes)
+
         else:
             self.flatten = nn.Flatten()
             self.clf_fc = nn.Linear(self.conv1._output_dim, self.num_classes, bias=False)
-
 
         self.apply(self._init_weights)
 
@@ -149,9 +162,12 @@ class TorchModel(Module):
         if self.version == 'v1':
             x = self.conv2(x)
 
+        elif self.version == 'v2':
+            x = self.conv2(x)
+            x = self.gruLayers(x)
+
         flatten = self.flatten(x)
         logits = self.clf_fc(flatten)
-
         return logits, flatten
 
 
@@ -170,6 +186,35 @@ class conv1DBlock(nn.Module):
             # nn.MaxPool1d(kernel_size=self.kernel_size, stride=self.kernel_shift),
             nn.Dropout(0.25)
         )
+
+    def forward(self, x):
+        for layer in self._block:
+            x = layer(x)
+        return x
+
+
+class GRUBlock(nn.Module):
+
+    def __init__(self, input_size, hidden_size, num_layers, bias=False, batch_first=True, dropout=None,
+                 bidirectional=False):
+        super().__init__()
+        """
+        :param input_size: if batch_first = True -> input_size (batch, seq, feature) instead of (seq, batch, feature)
+        :param hidden_size: #features in the hidden state
+        :param num_layers:
+        :param batch_first:
+        :param dropout: if non-zero introduces a Dropout layer on the outputs of each GRU layer except the last.
+        :param bidirectional:
+        """
+        self._block = nn.Sequential()
+
+        for i in range(0, num_layers):
+            name = 'GRULayer'+str(i+1)
+            self._block.add_module(name=name, module=nn.GRU(input_size, hidden_size,
+                                    num_layers, bias, batch_first, dropout, bidirectional))
+
+
+        self._OUTPUT_DIM = hidden_size
 
     def forward(self, x):
         for layer in self._block:

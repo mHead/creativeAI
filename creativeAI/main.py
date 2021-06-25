@@ -75,7 +75,7 @@ assert len(repo_root) != 0
 
 music_data_root = os.path.join(repo_root, r'musicSide_root_data')
 image_data_root = os.path.join(repo_root, r'imageSide_root_data')
-code_root = os.path.join(repo_root, r'code_root')
+code_root = os.path.join(repo_root, r'creativeAI')
 save_dir_root = os.path.join(repo_root, r'saves_dir')
 
 modelVersions = {
@@ -86,7 +86,8 @@ modelVersions = {
 
 versionsConfig = {
     'Baseline': '',
-    'v1': {'batch_size': 4, 'n_workers': 2}
+    'v1': {'batch_size': 4, 'n_workers': 2},
+    'v2': {'batch_size': 4, 'n_workers': 2}
 }
 
 ConfigurationDict = {
@@ -97,7 +98,7 @@ ConfigurationDict = {
     'dataset_root': '',
     'labels_root': '',
     'save_dir_root': '',
-    'model_version': modelVersions.get(1),
+    'model_version': modelVersions.get(2),
     'batch_size': '',
     'n_workers': ''
 }
@@ -213,13 +214,14 @@ if __name__ == '__main__':
 
         b = Benchmark("[main.py] pytorch_model_timer")
         b.start_timer()
-        first_model = TorchModel(pytorch_dataset, train_DataLoader, test_DataLoader, val_DataLoader, save_dir_root=save_dir_root, version=ConfigurationDict.get("model_version"))
+        mutable_model = TorchModel(pytorch_dataset, train_DataLoader, test_DataLoader, val_DataLoader, save_dir_root=save_dir_root, version=ConfigurationDict.get("model_version"), n_gru=1)
+
         b.end_timer()
         del b
 
         b = Benchmark("[main.py] runner_timer")
         b.start_timer()
-        runner = Runner(first_model)
+        runner = Runner(mutable_model)
         exit_code = runner.train()
         b.end_timer()
         del b

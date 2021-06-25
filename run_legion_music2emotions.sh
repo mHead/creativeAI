@@ -44,7 +44,7 @@ fi
 cd ./creativeAI || exit
 #chmod +x run_legion_music2emotions.sh
 
-cd ./code_root || exit
+cd ./creativeAI || exit
 
 repo_root_legion="/home/mtesta/creativeAI"
 code="main.py"

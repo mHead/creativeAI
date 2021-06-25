@@ -72,15 +72,15 @@ class Runner(object):
         self.tensorboard_outs_path = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('tensorboard_outs'))
         self.models_save_dir = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('save_directory'))
         # Write the graph to be read on Tensorboard
-        '''
-        self.writer = SummaryWriter(self.tensorboard_outs_path)
+        SummaryWriter()
+        self.writer = SummaryWriter(self.tensorboard_outs_path, filename_suffix=self.model.name)
         example = self.model.emoMusicPTDataset[0]
         if self.model.emoMusicPTDataset.slice_mode:
             self.writer.add_graph(self.model, example[0].reshape(1, 1, 22050))
         else:
             self.writer.add_graph(self.model, example[0].reshape(1, 1, 1345050))
         self.writer.close()
-        '''
+
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,
                                           weight_decay=self.settings.get('weight_decay'))
         self.scheduler = ReduceLROnPlateau(self.optimizer, mode=self.train_policies.get('mode'),
