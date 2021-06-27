@@ -149,7 +149,9 @@ class Runner(object):
                 # print first prediction plus every 10
                 self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
 
-                epoch_acc_running_corrects += self.accuracy(score, dominant_label)
+                #epoch_acc_running_corrects += self.accuracy(score, dominant_label)
+                pred = self.get_likely_index(score)
+                epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
 
                 if mode == 'train':
                     loss.backward()
@@ -168,11 +170,19 @@ class Runner(object):
         stop = self.learning_rate < self.stopping_rate
         return stop
 
+    def get_likely_index(self, tensor):
+        return tensor.argmax(dim=-1)
+
+    def number_of_correct(self, pred, target):
+        return pred.squeeze().eq(target).sum().item()
+
     def accuracy(self, source, target):
         _, preds = torch.max(source, 1)
         target = target.long().cpu()
         correct = torch.sum(preds == target).data.item()
+
         return correct / float(source.size(0))
+
 
     def count_parameters(self, _model):
         return sum(p.numel() for p in _model.parameters() if p.requires_grad)
