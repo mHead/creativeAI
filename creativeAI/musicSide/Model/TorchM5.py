@@ -23,6 +23,7 @@ class TorchM5(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.n_channel = hyperparams.get("kernel_features_maps")
+        self.kernel_features_maps = self.n_channel      # redundant but called during print_training_stats, common to models
         self.n_input = hyperparams.get("n_input")
         self.n_output = hyperparams.get("n_output")
 

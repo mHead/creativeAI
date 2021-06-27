@@ -297,13 +297,18 @@ if __name__ == '__main__':
 
             if exit_code == runner.SUCCESS:
                 print(f'[main.py] Evaluation of Test set Done! exit_code: {exit_code} -> SUCCESS')
+                del runner, model
             elif exit_code == runner.FAILURE:
                 print(f'[main.py] Evaluation Failed! exit_code: {exit_code} -> FAILURE')
+                del runner, model
             else:
+                del runner, model
                 print(f'[main.py] Evaluation returned with a not expected exit code {exit_code} -> unknown')
         elif exit_code == runner.FAILURE:
+            del runner, model
             print(f'[main.py] Training Failed! exit_code: {exit_code} -> FAILURE')
         else:
+            del runner, model
             print(f'[main.py] Training returned with a not expected exit code {exit_code} -> unknown')
 
     # %%

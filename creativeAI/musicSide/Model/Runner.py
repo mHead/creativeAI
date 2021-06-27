@@ -161,7 +161,6 @@ class Runner(object):
 
             epoch_loss = epoch_loss / float(len(self.model.train_dataloader))
             epoch_acc = epoch_acc_running_corrects / float(len(self.model.train_dataloader))
-
         return epoch_loss, epoch_acc
 
     def early_stop(self, loss, epoch):
@@ -182,7 +181,6 @@ class Runner(object):
         correct = torch.sum(preds == target).data.item()
 
         return correct / float(source.size(0))
-
 
     def count_parameters(self, _model):
         return sum(p.numel() for p in _model.parameters() if p.requires_grad)
@@ -210,26 +208,7 @@ class Runner(object):
                       f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
 
                 if self.early_stop(train_loss, epoch + 1):
-                    print(f'Saving checkpoint model...')
-                    checkpoint = {
-                        "epoch": epoch,
-                        "model_state": self.model.state_dict(),
-                        "optim_state": self.optimizer.state_dict()
-                    }
-                    d = datetime.datetime.now()
-                    path = os.path.join(self.best_model_to_save_path, self.model.name)
-                    # remember: n_channel = kernel features maps
-                    path = path + f'_kfm={self.model.n_channel}_{u.format_timestamp(d)}_checkpoint_model.pth'
-                    torch.save(checkpoint, path)
-                    # to load it
-                    # loaded_checkpoint = torch.load(path)
-                    # epoch = loaded_checkpoint['epoch']
-                    # model = TorchM5(...)
-                    # optimizer = define optim with lr=0
-                    # model.load_State_dict(loaded_checkpoint['model_state']
-                    # optimizer.load_state_dict(loaded_checkpoint['optim_state']
-                    # .. continue training
-                    # print(optimizer.state_dict())
+                    self.save_model(epoch=epoch, early_stop=True)
                     break
             train_done = True
 
@@ -245,6 +224,7 @@ class Runner(object):
                       f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
 
                 if self.early_stop(train_loss, epoch + 1):
+                    self.save_model(epoch=epoch, early_stop=True)
                     break
             train_done = True
 
@@ -255,17 +235,7 @@ class Runner(object):
             best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
             print(f'[Runner.train() -> train_done!]\n\tBest accuracy: {best_acc} at epoch {at_epoch}\n')
 
-            print(f'Saving best model...')
-            d = datetime.datetime.now()
-            path = os.path.join(self.best_model_to_save_path, self.model.name)
-            path = path + f'_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_best_model.pth'
-            torch.save(self.model.state_dict(), path)
-            # in order to load the model we have to
-            # loaded_model = TorchM5(...)
-            # loaded_model.load_state_dict(torch.load(path))
-            # loaded_model.eval()
-            # for p in loaded_model.parameters():
-            #   print(p)
+            self.save_model(epoch, early_stop=False)
 
             t.end_timer()
             return self.SUCCESS
@@ -364,3 +334,44 @@ class Runner(object):
             print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id} filename: {filename}')
             _, preds = torch.max(score, 1)
             print(f'\tGround Truth label: {label}\n\tPredicted:{preds}')
+
+    def save_model(self, epoch, early_stop=False):
+        d = datetime.datetime.now()
+        path = os.path.join(self.best_model_to_save_path, self.model.name)
+
+        if early_stop:
+            print(f'Saving checkpoint model...')
+            checkpoint = {
+                "epoch": epoch,
+                "model_state": self.model.state_dict(),
+                "optim_state": self.optimizer.state_dict(),
+            }
+            # remember: n_channel = kernel features maps
+            path = path + f'_kfm={self.model.n_channel}_{u.format_timestamp(d)}_checkpoint_model.pth'
+            torch.save(checkpoint, path)
+            # to load it
+            # loaded_checkpoint = torch.load(path)
+            # epoch = loaded_checkpoint['epoch']
+            # model = TorchM5(...)
+            # optimizer = define optim with lr=0
+            # model.load_State_dict(loaded_checkpoint['model_state']
+            # optimizer.load_state_dict(loaded_checkpoint['optim_state']
+            # .. continue training
+            # print(optimizer.state_dict())
+        else:
+            print(f'Saving best model...')
+            path = path + f'_kfm={self.model.n_channel}_{u.format_timestamp(d)}_best_model.pth'
+            torch.save(self.model.state_dict(), path)
+            # in order to load the model we have to
+            # loaded_model = TorchM5(...)
+            # loaded_model.load_state_dict(torch.load(path))
+            # loaded_model.eval()
+            # for p in loaded_model.parameters():
+            #   print(p)
+
+
+
+
+
+
+
