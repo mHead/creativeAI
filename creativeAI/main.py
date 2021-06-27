@@ -9,6 +9,7 @@ from musicSide.DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusi
 # Models
 from musicSide.Model.CNN_biGRU import CNN_BiGRU
 from musicSide.Model.TorchModel import TorchModel
+from musicSide.Model.TorchM5 import TorchM5
 from musicSide.Model.Runner import Runner
 from musicSide.Model.Benchmark import Benchmark
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -82,12 +83,14 @@ modelVersions = {
     0: 'Baseline',
     1: 'v1',
     2: 'v2',
+    3: 'M5'
 }
 
 versionsConfig = {
     'Baseline': '',
     'v1': {'batch_size': 4, 'n_workers': 2},
-    'v2': {'batch_size': 4, 'n_workers': 2}
+    'v2': {'batch_size': 4, 'n_workers': 2},
+    'M5': {'batch_size': 4, 'n_workers': 2}
 }
 
 ConfigurationDict = {
@@ -98,7 +101,7 @@ ConfigurationDict = {
     'dataset_root': '',
     'labels_root': '',
     'save_dir_root': '',
-    'model_version': modelVersions.get(2),
+    'model_version': modelVersions.get(1),
     'batch_size': '',
     'n_workers': ''
 }
@@ -106,9 +109,9 @@ train_model_conf = versionsConfig.get(ConfigurationDict.get('model_version'))
 
 ConfigurationDict.__setitem__('batch_size', train_model_conf['batch_size'])
 ConfigurationDict.__setitem__('n_workers', train_model_conf['n_workers'])
+
 if run_config == 'legion':
     music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed')
-
 elif run_config == 'colab':
     music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
 else:
@@ -214,15 +217,62 @@ if __name__ == '__main__':
 
         b = Benchmark("[main.py] pytorch_model_timer")
         b.start_timer()
-        mutable_model = TorchModel(pytorch_dataset, train_DataLoader, test_DataLoader, val_DataLoader, save_dir_root=save_dir_root, version=ConfigurationDict.get("model_version"), n_gru=1)
+        baseline_model = TorchModel(pytorch_dataset, train_DataLoader, test_DataLoader, val_DataLoader, save_dir_root=save_dir_root, version=ConfigurationDict.get("model_version"), n_gru=1)
 
         b.end_timer()
         del b
 
+
+        # %% TorchM5 model
+        b = Benchmark("[main.py] TorchM5 model timer")
+        b.start_timer()
+        save_dir_m5 = os.path.join(save_dir_root, 'TorchM5')
+        if not os.path.exists(save_dir_m5):
+            os.mkdir(save_dir_m5)
+
+        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, save_dir_root=save_dir_m5, n_input=1, n_output=pytorch_dataset.num_classes)
+
+
+        b.end_timer()
+        del b
+        # %%
         b = Benchmark("[main.py] runner_timer")
         b.start_timer()
-        runner = Runner(mutable_model)
+
+        # Defining training Policies
+        TrainingSettings = {
+            "batch_size": 4,
+            "epochs": 40,
+            "learning_rate": 0.01,
+            "stopping_rate": 1e-7,
+            "weight_decay": 0.0001,
+            "momentum": 0.8
+        }
+
+        TrainingPolicies = {
+            "monitor": 'val_loss',
+            "mode": 'min',
+            "factor": 0.9,
+            "patience": 20,
+            "min_lr": 0.000001,
+            "verbose": 1
+        }
+
+        TrainSavingsPolicies = {
+            "plot_save_dir": 'pytorch_outs/plots',
+            "save_directory": 'pytorch_outs/best_models',
+            "tensorboard_outs": 'pytorch_outs/tb_outputs',
+            "monitor": 'val_categorical_accuracy',
+            "quiet": 0,
+            "verbose": 1
+        }
+
+        bundle = {**TrainingSettings, **TrainingPolicies, **TrainSavingsPolicies}
+
+        runner = Runner(_model=model, _bundle=bundle)
+
         exit_code = runner.train()
+
         b.end_timer()
         del b
 

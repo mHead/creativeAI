@@ -84,6 +84,9 @@ CNNHyperParams = {
 
 
 class TorchModel(Module):
+    """
+    Baseline with one conv1D layer
+    """
     def __init__(self, dataset: emoMusicPTDataset, train_dl: emoMusicPTDataLoader, test_dl: emoMusicPTDataLoader,
                  val_dl: emoMusicPTDataLoader,
                  save_dir_root, version=None, n_gru=None,
@@ -108,14 +111,22 @@ class TorchModel(Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # setting up input shape
+        self.__version__ = version
         self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, self.ex0_label_coords = train_dl.dataset[0]
         self.input_shape = self.example_0.shape
-        print(f'self.input_shape {self.input_shape}\t{type(self.example_0)}')
+        print(f'Setting up input shape for the Model train_dl __getitem__:'
+              f'\n\twaveform: {self.example_0}'
+              f'\n\t\tself.input_shape {self.input_shape}'
+              f'\n\t\ttype: {type(self.example_0)}'
+              f'\n\tsong_id: {self.ex0_songid}'
+              f'\n\tfilename: {self.ex0_filename}'
+              f'\n\tlabel: {self.ex0_label}'
+              f'\n\tcoordinates in dataframe: {self.ex0_label_coords}')
 
         self.kernel_features_maps = CNNHyperParams.get('kernel_features_maps')
         self.kernel_size = CNNHyperParams.get('kernel_size')
         self.kernel_shift = int(CNNHyperParams.get('kernel_shift'))
-        print(f'[TorchModel.py]{self.name} will run on the following device: {self.device}')
+        print(f'\n\n{self.name} will run on {self.device}')
 
         self._nGRU_Layers = n_gru
 

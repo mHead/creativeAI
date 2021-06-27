@@ -1,17 +1,17 @@
-import os, sys
-from ..Model.TorchModel import TorchModel
-from ..DatasetMusic2emotion.tools import utils as u
+import os
+import sys
 import datetime
-from .Benchmark import Benchmark
 import torch
 import torch.cuda as cuda
 import numpy as np
-import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from ..Model.TorchModel import TorchModel
 import matplotlib.pyplot as plt
-from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataLoader, emoMusicPTSubset, emoMusicPTDataset
+
+from .Benchmark import Benchmark
+from ..DatasetMusic2emotion.tools import utils as u
+from ..Model.TorchM5 import TorchM5
 
 PlotColors = {
     'train_loss': '#30A666',  # verde scuro
@@ -21,57 +21,29 @@ PlotColors = {
     'eval_loss': '#213E46',  # blu scuro
     'eval_acc': '#B1E2F0'  # azzurro
 }
-TrainingSettings = {
-    "batch_size": 4,
-    "epochs": 40,
-    "learning_rate": 0.00001,
-    "stopping_rate": 1e-7,
-    "weight_decay": 1e-6,
-    "momentum": 0.8
-}
-
-TrainingPolicies = {
-    "monitor": 'val_loss',
-    "mode": 'min',
-    "factor": 0.9,
-    "patience": 20,
-    "min_lr": 0.000001,
-    "verbose": 1
-}
-
-TrainSavingsPolicies = {
-    "plot_save_dir": 'pytorch_outs/plots',
-    "save_directory": 'pytorch_outs/best_models',
-    "tensorboard_outs": 'pytorch_outs/tb_outputs',
-    "monitor": 'val_categorical_accuracy',
-    "quiet": 0,
-    "verbose": 1
-}
-
-TestingSettings = {}
-TestPolicies = {}
-TestSavingPolicies = {}
 
 
 class Runner(object):
     """
     This is the class which handle the model lifecycle
     :param _model:
+    :param _bundle dict containing 3 dictionaries: TrainingSetting, TrainingPolicies, TrainSavingsPolicies
     """
 
-    def __init__(self, _model: TorchModel):
+    def __init__(self, _model: TorchM5, _bundle):
         self.SUCCESS = 0
         self.FAILURE = -1
+
         self.model = _model
         self.device = self.model.device
-        self.settings = TrainingSettings
-        self.train_policies = TrainingPolicies
-        self.save_policies = TrainSavingsPolicies
+
+        self.settings = _bundle
+
         self.learning_rate = self.settings.get('learning_rate')
         self.stopping_rate = self.settings.get('stopping_rate')
-        self.tensorboard_outs_path = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('tensorboard_outs'))
-        self.models_save_dir = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('save_directory'))
-        # Write the graph to be read on Tensorboard
+        self.tensorboard_outs_path = os.path.join(self.model.save_dir, self.settings.get('tensorboard_outs'))
+        self.models_save_dir = self.model.save_dir
+        # %%Write the graph to be read on Tensorboard
         SummaryWriter()
         self.writer = SummaryWriter(self.tensorboard_outs_path, filename_suffix=self.model.name)
         example = self.model.emoMusicPTDataset[0]
@@ -80,12 +52,13 @@ class Runner(object):
         else:
             self.writer.add_graph(self.model, example[0].reshape(1, 1, 1345050))
         self.writer.close()
+        # %%
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,
                                           weight_decay=self.settings.get('weight_decay'))
-        self.scheduler = ReduceLROnPlateau(self.optimizer, mode=self.train_policies.get('mode'),
-                                           factor=self.train_policies.get('factor'),
-                                           patience=self.train_policies.get('patience'), verbose=True)
+        self.scheduler = ReduceLROnPlateau(self.optimizer, mode=self.settings.get('mode'),
+                                           factor=self.settings.get('factor'),
+                                           patience=self.settings.get('patience'), verbose=True)
 
         self.criterion = torch.nn.CrossEntropyLoss(weight=None, size_average=None, ignore_index=-100, reduce=None,
                                                    reduction='mean')
@@ -104,7 +77,7 @@ class Runner(object):
         print(f'[Runner.run()] call for epoch: {current_epoch} / {self.settings.get("epochs")}')
         if slice_mode:
             '''
-            input of conv1D is (1, 1, 22050) take prediction for every slice (61 in one song)
+            input of conv1D is  ttc (1, 1, 22050) take prediction for every slice (61 in one song)
             when in slice_mode dataset expects indices ranging from 0 to 45357 such that:
             - pass the song_index then convert that index in slice_index and loop 61 times
             '''
@@ -123,7 +96,10 @@ class Runner(object):
             for batch, (audio_segment, song_id, filename, label, coords) in enumerate(dataloader):
 
                 # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
-                score, flatten = self.model(audio_segment)
+                if self.model.name == 'TorchM5_music2emoCNN':
+                    score, flatten, log_softmax = self.model(audio_segment)
+                else:
+                    score, flatten = self.model(audio_segment)
 
                 loss = self.criterion(score, label)
                 acc = self.accuracy(score, label)
@@ -163,18 +139,21 @@ class Runner(object):
 
                 # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
                 # compute outputs
-                score, flatten = self.model(song_data)
+                if self.model.name == 'TorchM5_music2emoCNN':
+                    output = self.model(song_data)
+                    loss = F.nll_loss(output.squeeze(), dominant_label)
+                else:
+                    score, flatten = self.model(song_data)
+                    loss = self.criterion(score, dominant_label)
 
-                # print prediction info about first, second and every 50 epochs
+                # print first prediction plus every 10
                 self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
 
-                loss = self.criterion(score, dominant_label)
                 epoch_acc_running_corrects += self.accuracy(score, dominant_label)
 
                 if mode == 'train':
                     loss.backward()
                     self.optimizer.step()
-                    # self.optimizer.zero_grad()
 
                 epoch_loss += score.size(0) * loss.item()
 
@@ -195,14 +174,15 @@ class Runner(object):
         correct = torch.sum(preds == target).data.item()
         return correct / float(source.size(0))
 
+    def count_parameters(self, _model):
+        return sum(p.numel() for p in _model.parameters() if p.requires_grad)
+
     def train(self):
         train_done = False
-        self.settings = TrainingSettings
-        self.train_policies = TrainingPolicies
-        self.save_policies = TrainSavingsPolicies
 
         t = Benchmark("[Runner] train call")
-        print(f'Starting training loop for {self.settings.get("epochs")} epochs')
+        print(f'Starting training loop of {self.model.name} for {self.settings.get("epochs")} epochs')
+        print(f'The model has {self.count_parameters(self.model)} parameters')
         t.start_timer()
 
         train_losses = np.zeros(self.settings.get('epochs'))
@@ -252,9 +232,6 @@ class Runner(object):
 
     def eval(self):
         eval_done = False
-        self.settings = TrainingSettings
-        self.train_policies = TrainingPolicies
-        self.save_policies = TrainSavingsPolicies
 
         t = Benchmark("[Runner] eval call")
         print(f'Starting evaluation for 1 epoch')
@@ -322,17 +299,17 @@ class Runner(object):
                 ax.set_ylabel('Accuracies (%)')
                 ax.legend(loc='upper left', scatterpoints=1, frameon=True)
         plt.tight_layout()
-        save_path = os.path.join(self.model.save_dir, TrainSavingsPolicies.get('plot_save_dir'))
+        save_path = os.path.join(self.model.save_dir, self.settings.get('plot_save_dir'))
         if mode == 'train':
             print(f'Saving..... Train Curves\tto {save_path + "_timestamp_train_curve.png"}\n')
             d = datetime.datetime.now()
             plt.savefig(
-                save_path + f"{self.model.name}_{self.model.kernel_features_maps}_{u.format_timestamp(d)}_train_curves.png")
+                save_path + f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_train_curves.png")
         elif mode == 'eval':
             print(f'Saving..... Test Curves\tto {save_path + "_timestamp_test_curve.png"}\n')
             d = datetime.datetime.now()
             plt.savefig(
-                save_path + f"{self.model.name}_{self.model.kernel_features_maps}_{u.format_timestamp(d)}_test_curves.png")
+                save_path + f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_test_curves.png")
         else:
             print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
             sys.exit(self.FAILURE)
@@ -340,7 +317,7 @@ class Runner(object):
         plt.show()
 
     def print_prediction(self, current_epoch, song_id, filename, label, score):
-        if current_epoch - 1 == 0 or (current_epoch - 1) % 20 == 0:
+        if current_epoch - 1 == 0 or (current_epoch - 1) % 10 == 0:
             print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id} filename: {filename}')
             _, preds = torch.max(score, 1)
             print(f'\tGround Truth label: {label}\n\tPredicted:{preds}')

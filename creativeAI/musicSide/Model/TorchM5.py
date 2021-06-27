@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from ..DatasetMusic2emotion.tools import va2emotion as va2emo
+
 
 
 hyperparams = {
@@ -11,13 +13,37 @@ hyperparams = {
     "kernel_shift": 110,
     "kernel_features_maps": 8 * 16,
     "groups": 1,
-    "batch_size": 32
 }
 
 
 class TorchM5(nn.Module):
-    def __init__(self, n_input=1, n_output=35, stride=16, n_channel=32):
-        super().__init__()
+    """
+    The following architecture is modeled after the M5 network architecture described in https://arxiv.org/pdf/1610.00087.pdf
+    """
+    def __init__(self, dataset, train_dl, test_dl, save_dir_root, n_input=1, n_output=8, stride=16, n_channel=32):
+        super(TorchM5, self).__init__()
+        self.save_dir = save_dir_root
+        self.emoMusicPTDataset = dataset
+        self.train_dataloader = train_dl
+        self.test_dataloader = test_dl
+        self.name = 'TorchM5_music2emoCNN_criterion_version'
+        self.labelsDict = va2emo.EMOTIONS_
+        self.num_classes = len(self.labelsDict)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._hyperparams = hyperparams
+        # setting up input shape
+        self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, self.ex0_label_coords = self.train_dataloader.dataset[0]
+        self.input_shape = self.example_0.shape
+        print(f'Setting up input shape for the Model train_dl __getitem__:'
+              f'\n\twaveform: {self.example_0}'
+              f'\n\t\tself.input_shape {self.input_shape}'
+              f'\n\t\ttype: {type(self.example_0)}'
+              f'\n\tsong_id: {self.ex0_songid}'
+              f'\n\tfilename: {self.ex0_filename}'
+              f'\n\tlabel: {self.ex0_label}'
+              f'\n\tcoordinates in dataframe: {self.ex0_label_coords}')
+
+        # Network architecture
         self.conv1 = nn.Conv1d(n_input, n_channel, kernel_size=80, stride=stride)
         self.bn1 = nn.BatchNorm1d(n_channel)
         self.pool1 = nn.MaxPool1d(4)
@@ -30,7 +56,9 @@ class TorchM5(nn.Module):
         self.conv4 = nn.Conv1d(2 * n_channel, 2 * n_channel, kernel_size=3)
         self.bn4 = nn.BatchNorm1d(2 * n_channel)
         self.pool4 = nn.MaxPool1d(4)
-        self.fc1 = nn.Linear(2 * n_channel, n_output)
+        if self.name == "TorchM5_music2emoCNN_criterion_version":
+            self.flatten = nn.Flatten()
+        self.fc1 = nn.Linear(2 * n_channel, self.num_classes)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -45,17 +73,19 @@ class TorchM5(nn.Module):
         x = self.conv4(x)
         x = F.relu(self.bn4(x))
         x = self.pool4(x)
-        x = F.avg_pool1d(x, x.shape[-1])
-        x = x.permute(0, 2, 1)
-        x = self.fc1(x)
-        return F.log_softmax(x, dim=2)
+        ks = x.shape[-1]
+        if isinstance(ks, torch.Tensor):
+            ks = ks.item()
 
-    model = M5(n_input=transformed.shape[0], n_output=len(labels))
-    model.to(device)
-    print(model)
+        x = F.avg_pool1d(x, kernel_size=ks)
 
-    def count_parameters(model):
-        return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-    n = count_parameters(model)
-    print("Number of parameters: %s" % n)
+        if self.name == 'TochM5_music2emoCNN':
+            # do as Documentation
+            x = x.permute(0, 2, 1)
+            x = self.fc1(x)
+            return F.log_softmax(x, dim=2)
+        else:
+            # train with criterion = CategoricalCrossEntropyLoss
+            flatten = self.flatten(x)
+            logits = self.fc1(flatten)
+            return logits, flatten

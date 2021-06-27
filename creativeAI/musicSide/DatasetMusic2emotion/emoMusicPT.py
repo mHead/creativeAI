@@ -368,8 +368,8 @@ class emoMusicPTDataLoader(DataLoader):
     """
     Extends torch.utils.data.DataLoader. Combines a dataset and a sampler and provides an iterable over the given dataset
     """
-    def __init__(self, dataset: emoMusicPTSubset, batch_size=1, shuffle=False, num_workers=1):
-        super().__init__(dataset, batch_size, shuffle, None, None, num_workers)
+    def __init__(self, dataset: emoMusicPTSubset, batch_size=4, shuffle=False, collate_fn=None, num_workers=1, pin_memory=False):
+        super().__init__(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers, pin_memory=pin_memory)
         '''   
         :param dataset:(torch.data.utils.Dataset) a map-style [implements __getitem__() and __len__()] or iterable-style
         
