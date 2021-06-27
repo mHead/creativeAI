@@ -7,20 +7,11 @@ import torch.optim as optim
 from ..DatasetMusic2emotion.tools import va2emotion as va2emo
 
 
-
-hyperparams = {
-    "kernel_size": 220,
-    "kernel_shift": 110,
-    "kernel_features_maps": 8 * 16,
-    "groups": 1,
-}
-
-
 class TorchM5(nn.Module):
     """
     The following architecture is modeled after the M5 network architecture described in https://arxiv.org/pdf/1610.00087.pdf
     """
-    def __init__(self, dataset, train_dl, test_dl, save_dir_root, n_input=1, n_output=8, stride=16, n_channel=32):
+    def __init__(self, dataset, train_dl, test_dl, save_dir_root, hyperparams, n_input=1, n_output=8, stride=16, n_channel=32):
         super(TorchM5, self).__init__()
         self.save_dir = save_dir_root
         self.emoMusicPTDataset = dataset

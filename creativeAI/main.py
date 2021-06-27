@@ -230,7 +230,14 @@ if __name__ == '__main__':
         if not os.path.exists(save_dir_m5):
             os.mkdir(save_dir_m5)
 
-        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, save_dir_root=save_dir_m5, n_input=1, n_output=pytorch_dataset.num_classes)
+        hyperparams = {
+            "kernel_size": 220,
+            "kernel_shift": 110,
+            "kernel_features_maps": 8 * 16,
+            "groups": 1,
+        }
+
+        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, save_dir_root=save_dir_m5, hyperparams=hyperparams, n_input=1, n_output=pytorch_dataset.num_classes)
 
 
         b.end_timer()
