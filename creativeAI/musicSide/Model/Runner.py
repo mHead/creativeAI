@@ -102,7 +102,10 @@ class Runner(object):
                     score, flatten = self.model(audio_segment)
 
                 loss = self.criterion(score, label)
-                acc = self.accuracy(score, label)
+                if self.device == 'cuda':
+                    print('null')
+                else:
+                    acc = self.accuracy(score, label)
 
                 self.print_prediction(current_epoch, song_id, filename, label, score)
 
@@ -149,7 +152,7 @@ class Runner(object):
                 # print first prediction plus every 10
                 self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
 
-                if self.model.device == 'cuda':
+                if self.device == 'cuda':
                     pred = self.get_likely_index(score)
                     epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
                 else:
