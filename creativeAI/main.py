@@ -231,14 +231,16 @@ if __name__ == '__main__':
             os.mkdir(save_dir_m5)
 
         hyperparams = {
-            "kernel_size": 220,
-            "kernel_shift": 110,
-            "kernel_features_maps": 8 * 16,
+            "n_input": 1,  # the real audio channel is calles n_input
+            "n_output": pytorch_dataset.num_classes,
+            "kernel_size": 80,
+            "kernel_shift": 16,
+            "kernel_features_maps": 8 * 4,
+            # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
             "groups": 1,
         }
 
-        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, save_dir_root=save_dir_m5, hyperparams=hyperparams, n_input=1, n_output=pytorch_dataset.num_classes)
-
+        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, save_dir_root=save_dir_m5, hyperparams=hyperparams)
 
         b.end_timer()
         del b

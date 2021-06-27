@@ -218,7 +218,8 @@ class Runner(object):
                     }
                     d = datetime.datetime.now()
                     path = os.path.join(self.best_model_to_save_path, self.model.name)
-                    path = path + f'_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_checkpoint_model.pth'
+                    # remember: n_channel = kernel features maps
+                    path = path + f'_kfm={self.model.n_channel}_{u.format_timestamp(d)}_checkpoint_model.pth'
                     torch.save(checkpoint, path)
                     # to load it
                     # loaded_checkpoint = torch.load(path)

@@ -11,7 +11,7 @@ class TorchM5(nn.Module):
     """
     The following architecture is modeled after the M5 network architecture described in https://arxiv.org/pdf/1610.00087.pdf
     """
-    def __init__(self, dataset, train_dl, test_dl, save_dir_root, hyperparams, n_input=1, n_output=8, stride=16, n_channel=32):
+    def __init__(self, dataset, train_dl, test_dl, save_dir_root, hyperparams):
         super(TorchM5, self).__init__()
         self.save_dir = save_dir_root
         self.emoMusicPTDataset = dataset
@@ -22,8 +22,11 @@ class TorchM5(nn.Module):
         self.num_classes = len(self.labelsDict)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self._hyperparams = hyperparams
-        self.kernel_features_maps = self._hyperparams.get("kernel_features_maps")
+        self.n_channel = hyperparams.get("kernel_features_maps")
+        self.n_input = hyperparams.get("n_input")
+        self.n_output = hyperparams.get("n_output")
+
+
 
         # setting up input shape
         self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, self.ex0_label_coords = self.train_dataloader.dataset[0]
@@ -38,21 +41,22 @@ class TorchM5(nn.Module):
               f'\n\tcoordinates in dataframe: {self.ex0_label_coords}')
 
         # Network architecture
-        self.conv1 = nn.Conv1d(n_input, n_channel, kernel_size=80, stride=stride)
-        self.bn1 = nn.BatchNorm1d(n_channel)
+        self.conv1 = nn.Conv1d(self.n_input, self.n_channel, kernel_size=hyperparams.get("kernel_size"),
+                               stride=hyperparams.get("kernel_shift"))
+        self.bn1 = nn.BatchNorm1d(self.n_channel)
         self.pool1 = nn.MaxPool1d(4)
-        self.conv2 = nn.Conv1d(n_channel, n_channel, kernel_size=3)
-        self.bn2 = nn.BatchNorm1d(n_channel)
+        self.conv2 = nn.Conv1d(self.n_channel, self.n_channel, kernel_size=3)
+        self.bn2 = nn.BatchNorm1d(self.n_channel)
         self.pool2 = nn.MaxPool1d(4)
-        self.conv3 = nn.Conv1d(n_channel, 2 * n_channel, kernel_size=3)
-        self.bn3 = nn.BatchNorm1d(2 * n_channel)
+        self.conv3 = nn.Conv1d(self.n_channel, 2 * self.n_channel, kernel_size=3)
+        self.bn3 = nn.BatchNorm1d(2 * self.n_channel)
         self.pool3 = nn.MaxPool1d(4)
-        self.conv4 = nn.Conv1d(2 * n_channel, 2 * n_channel, kernel_size=3)
-        self.bn4 = nn.BatchNorm1d(2 * n_channel)
+        self.conv4 = nn.Conv1d(2 * self.n_channel, 2 * self.n_channel, kernel_size=3)
+        self.bn4 = nn.BatchNorm1d(2 * self.n_channel)
         self.pool4 = nn.MaxPool1d(4)
         if self.name == "TorchM5_music2emoCNN_criterion_version":
             self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(2 * n_channel, self.num_classes)
+        self.fc1 = nn.Linear(2 * self.n_channel, self.num_classes)
 
     def forward(self, x):
         x = self.conv1(x)
