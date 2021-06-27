@@ -124,7 +124,6 @@ class Runner(object):
             '''
             epoch_loss = 0.0
             epoch_acc_running_corrects = 0.0
-            epoch_acc_running_corrects_cpu = 0.0
 
             # model = u.set_device(self.model, self.device)
 
@@ -150,9 +149,11 @@ class Runner(object):
                 # print first prediction plus every 10
                 self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
 
-                epoch_acc_running_corrects_cpu += self.accuracy(score, dominant_label)
-                pred = self.get_likely_index(score)
-                epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
+                if self.model.device == 'cuda':
+                    pred = self.get_likely_index(score)
+                    epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
+                else:
+                    epoch_acc_running_corrects += self.accuracy(score, dominant_label)
 
                 if mode == 'train':
                     loss.backward()
