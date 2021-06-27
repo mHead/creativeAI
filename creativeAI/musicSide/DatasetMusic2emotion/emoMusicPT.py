@@ -357,6 +357,10 @@ class emoMusicPTSubset(Subset):
     """
     def __init__(self, dataset, indices):
         super().__init__(dataset, indices)
+        self.len = len(indices)
+
+    def __len__(self):
+        return self.len
 
 # %%
 
@@ -407,6 +411,10 @@ class emoMusicPTDataLoader(DataLoader):
             - single and multi-process data loaing,
             - automatic memory pinning
         '''
+        self.len = len(dataset)
+
+    def __len__(self):
+        return self.len
 
     def song_idx_to_slices_range(self, n):
         start = n * _N_SLICES_PER_SONG

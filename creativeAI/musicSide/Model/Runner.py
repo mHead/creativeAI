@@ -63,7 +63,7 @@ class Runner(object):
         self.criterion = torch.nn.CrossEntropyLoss(weight=None, size_average=None, ignore_index=-100, reduce=None,
                                                    reduction='mean')
 
-    def run(self, dataloader, current_epoch, mode='train', slice_mode=False):
+    def run(self, current_epoch, mode='train', slice_mode=False):
         """
         Called one time for each epoch. It has to parse the whole dataset each time.
         :param current_epoch:
@@ -85,15 +85,15 @@ class Runner(object):
             epoch_acc = 0.0
 
             model = u.set_device(self.model, self.device)
-            train_indices = dataloader.sampler.data_source.indices
+            train_indices = self.model.train_dataloader.sampler.data_source.indices
             train_indices.sort()
-            s = dataloader.dataset[54]
+            s = self.model.train_dataloader.dataset[54]
             for song_idx in train_indices:
-                start_idx, end_idx = dataloader.song_idx_to_slices_range(song_idx)
+                start_idx, end_idx = self.model.train_dataloader.song_idx_to_slices_range(song_idx)
                 for i in range(start_idx, end_idx):
-                    audio_segment, song_id, filename, emotion_label, coords = dataloader.dataset[i]
+                    audio_segment, song_id, filename, emotion_label, coords = self.model.train_dataloader.dataset[i]
 
-            for batch, (audio_segment, song_id, filename, label, coords) in enumerate(dataloader):
+            for batch, (audio_segment, song_id, filename, label, coords) in enumerate(self.model.train_dataloader):
 
                 # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
                 if self.model.name == 'TorchM5_music2emoCNN':
@@ -114,8 +114,8 @@ class Runner(object):
                 epoch_loss += score.size(0) * loss.item()
                 epoch_acc += score.size(0) * acc
 
-            epoch_loss = epoch_loss / len(dataloader.dataset)
-            epoch_acc = epoch_acc / len(dataloader.dataset)
+            epoch_loss = epoch_loss / len(self.model.train_dataloader.dataset)
+            epoch_acc = epoch_acc / len(self.model.train_dataloader.dataset)
         else:
             '''
             the input of conv1d is (1, 1, 1345050).
@@ -124,10 +124,11 @@ class Runner(object):
             '''
             epoch_loss = 0.0
             epoch_acc_running_corrects = 0.0
+            epoch_acc_running_corrects_cpu = 0.0
 
             # model = u.set_device(self.model, self.device)
 
-            for batch, (song_data, song_id, filename, dominant_label, coords) in enumerate(dataloader):
+            for batch, (song_data, song_id, filename, dominant_label, coords) in enumerate(self.model.train_dataloader):
                 if cuda.is_available() and cuda.device_count() > 0:
                     song_data = song_data.to('cuda')
                     dominant_label = dominant_label.to('cuda')
@@ -149,7 +150,7 @@ class Runner(object):
                 # print first prediction plus every 10
                 self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
 
-                #epoch_acc_running_corrects += self.accuracy(score, dominant_label)
+                epoch_acc_running_corrects_cpu += self.accuracy(score, dominant_label)
                 pred = self.get_likely_index(score)
                 epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
 
@@ -159,8 +160,8 @@ class Runner(object):
 
                 epoch_loss += score.size(0) * loss.item()
 
-            epoch_loss = epoch_loss / float(len(dataloader))
-            epoch_acc = epoch_acc_running_corrects / float(len(dataloader))
+            epoch_loss = epoch_loss / float(len(self.model.train_dataloader))
+            epoch_acc = epoch_acc_running_corrects / float(len(self.model.train_dataloader))
 
         return epoch_loss, epoch_acc
 
@@ -174,7 +175,7 @@ class Runner(object):
         return tensor.argmax(dim=-1)
 
     def number_of_correct(self, pred, target):
-        return pred.squeeze().eq(target).sum().item()
+        return pred.squeeze().eq(target).sum().item() / float(pred.size(0))
 
     def accuracy(self, source, target):
         _, preds = torch.max(source, 1)
@@ -201,7 +202,7 @@ class Runner(object):
         if self.model.emoMusicPTDataset.slice_mode:
             for epoch in range(self.settings.get('epochs')):
                 print(f'[Runner.run(train_dl, {epoch + 1}, slice_mode=True)] called by Runner.train()')
-                train_loss, train_acc = self.run(self.model.train_dataloader, epoch + 1, mode='train', slice_mode=True)
+                train_loss, train_acc = self.run(epoch + 1, mode='train', slice_mode=True)
                 # Store epoch stats
                 train_losses[epoch] = train_loss
                 train_accuracies[epoch] = train_acc
@@ -216,7 +217,7 @@ class Runner(object):
         else:
             for epoch in range(self.settings.get('epochs')):
                 print(f'[Runner.run(train_dl, {epoch + 1}, slice_mode=False)] called by Runner.train()')
-                train_loss, train_acc = self.run(self.model.train_dataloader, epoch + 1, 'train', slice_mode=False)
+                train_loss, train_acc = self.run(epoch + 1, 'train', slice_mode=False)
                 # Store epoch stats
                 train_losses[epoch] = train_loss
                 train_accuracies[epoch] = train_acc
@@ -249,12 +250,12 @@ class Runner(object):
 
         if self.model.emoMusicPTDataset.slice_mode:
             print(f'[Runner.run(test_dl, 1, slice_mode=True)] called by Runner.eval()')
-            test_loss, test_acc = self.run(self.model.test_dataloader, 1, mode='eval', slice_mode=True)
+            test_loss, test_acc = self.run(1, mode='eval', slice_mode=True)
             eval_done = True
 
         else:
             print(f'[Runner.run(test_dl, 1, slice_mode=False)] called by Runner.eval()')
-            test_loss, test_acc = self.run(self.model.test_dataloader, 1, 'eval', slice_mode=False)
+            test_loss, test_acc = self.run(1, 'eval', slice_mode=False)
             eval_done = True
 
         if eval_done:
