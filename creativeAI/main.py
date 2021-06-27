@@ -250,6 +250,7 @@ if __name__ == '__main__':
         TrainingSettings = {
             "batch_size": 4,
             "epochs": 40,
+            "print_preds_every": 30,
             "learning_rate": 0.01,
             "stopping_rate": 1e-7,
             "weight_decay": 0.0001,

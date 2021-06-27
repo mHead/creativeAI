@@ -21,7 +21,10 @@ class TorchM5(nn.Module):
         self.labelsDict = va2emo.EMOTIONS_
         self.num_classes = len(self.labelsDict)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         self._hyperparams = hyperparams
+        self.kernel_features_maps = self._hyperparams.get("kernel_features_maps")
+
         # setting up input shape
         self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, self.ex0_label_coords = self.train_dataloader.dataset[0]
         self.input_shape = self.example_0.shape

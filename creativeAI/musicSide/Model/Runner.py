@@ -43,6 +43,7 @@ class Runner(object):
         self.stopping_rate = self.settings.get('stopping_rate')
         self.tensorboard_outs_path = os.path.join(self.model.save_dir, self.settings.get('tensorboard_outs'))
         self.models_save_dir = self.model.save_dir
+        self.best_model_to_save_path = _bundle.get("save_directory")
         # %%Write the graph to be read on Tensorboard
         SummaryWriter()
         self.writer = SummaryWriter(self.tensorboard_outs_path, filename_suffix=self.model.name)
@@ -209,6 +210,25 @@ class Runner(object):
                       f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
 
                 if self.early_stop(train_loss, epoch + 1):
+                    print(f'Saving checkpoint model...')
+                    checkpoint = {
+                        "epoch": epoch,
+                        "model_state": self.model.state_dict(),
+                        "optim_state": self.optimizer.state_dict()
+                    }
+                    d = datetime.datetime.now()
+                    path = os.path.join(self.best_model_to_save_path, self.model.name)
+                    path = path + f'_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_checkpoint_model.pth'
+                    torch.save(checkpoint, path)
+                    # to load it
+                    # loaded_checkpoint = torch.load(path)
+                    # epoch = loaded_checkpoint['epoch']
+                    # model = TorchM5(...)
+                    # optimizer = define optim with lr=0
+                    # model.load_State_dict(loaded_checkpoint['model_state']
+                    # optimizer.load_state_dict(loaded_checkpoint['optim_state']
+                    # .. continue training
+                    # print(optimizer.state_dict())
                     break
             train_done = True
 
@@ -233,6 +253,19 @@ class Runner(object):
             self.plot_scatter_training_stats(train_losses, train_accuracies, self.settings.get('epochs'), mode='train')
             best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
             print(f'[Runner.train() -> train_done!]\n\tBest accuracy: {best_acc} at epoch {at_epoch}\n')
+
+            print(f'Saving best model...')
+            d = datetime.datetime.now()
+            path = os.path.join(self.best_model_to_save_path, self.model.name)
+            path = path + f'_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_best_model.pth'
+            torch.save(self.model.state_dict(), path)
+            # in order to load the model we have to
+            # loaded_model = TorchM5(...)
+            # loaded_model.load_state_dict(torch.load(path))
+            # loaded_model.eval()
+            # for p in loaded_model.parameters():
+            #   print(p)
+
             t.end_timer()
             return self.SUCCESS
         else:
@@ -326,7 +359,7 @@ class Runner(object):
         plt.show()
 
     def print_prediction(self, current_epoch, song_id, filename, label, score):
-        if current_epoch - 1 == 0 or (current_epoch - 1) % 10 == 0:
+        if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
             print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id} filename: {filename}')
             _, preds = torch.max(score, 1)
             print(f'\tGround Truth label: {label}\n\tPredicted:{preds}')
