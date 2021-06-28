@@ -9,7 +9,7 @@ Given:
 - Music domain : D(music) = M
 - Image domain : D(image) = I
 ```
-The aim of the work is to build up a Deep Neural Network capable of translating from M to I.
+The aim of the work is to build up a Deep Neural Network capable of translating from M to I via emotions.
 
 ## Datasets
 https://cvml.unige.ch/databases/emoMusic/ but if you want the preprocessed version used in this work, contact me at marco_testa@icloud.com
