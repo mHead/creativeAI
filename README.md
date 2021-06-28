@@ -1,5 +1,5 @@
 # creativeAI
-**Code is under deployment** <br>
+**Code is under development** <br>
 Master's Degree Thesis: translate music language in the visive art language. <br>
 Codebase created and maintained by Marco Testa. <br>
 
