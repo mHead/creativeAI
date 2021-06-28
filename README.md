@@ -12,7 +12,7 @@ Given:
 The aim of the work is to build up a Deep Neural Network capable of translating from M to I.
 
 ## Datasets
-To get te most out of this repo, please __download__ contact me at marco_testa@icloud.com
+https://cvml.unige.ch/databases/emoMusic/ but if you want the preprocessed version used in this work, contact me at marco_testa@icloud.com
 
 ## High-level pipeline
 ```
