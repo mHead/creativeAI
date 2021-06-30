@@ -220,8 +220,8 @@ class emoMusicPTDataset(Dataset):
         for train_index, test_index in splits:
             print(f'[emoMusicPTDataset.py] TRAIN INDEX: {train_index} type: {type(train_index)} shape: {train_index.shape}')
             print(f'[emoMusicPTDataset.py] TEST INDEX: {test_index} type: {type(test_index)} shape: {test_index.shape}')
-        train_index.sort()
-        test_index.sort()
+        #train_index.sort()
+        #test_index.sort()
         print(f'\n[emoMusicPTDataset.py] type train_indexes {type(train_index)}\ntype test_indexes {type(test_index)}')
         return train_index, test_index
 

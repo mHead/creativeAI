@@ -110,7 +110,7 @@ class Runner(object):
                 loss = self.criterion(score, dominant_label)
 
             # print first prediction plus every 10
-            self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
+            self.print_prediction(current_epoch, song_id, slice_no, filename, dominant_label, score)
 
             pred = self.get_likely_index(score)
             epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
@@ -268,11 +268,16 @@ class Runner(object):
 
         plt.show()
 
-    def print_prediction(self, current_epoch, song_id, filename, label, score):
+    def print_prediction(self, current_epoch, song_id, slice_no, filename, label, score):
         if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
-            print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id} filename: {filename}')
-            _, preds = torch.max(score, 1)
-            print(f'\tGround Truth label: {label}\n\tPredicted:{preds}')
+            if not self.model.emoMusicPTDataset.slice_mode:
+                print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id} filename: {filename}')
+                _, preds = torch.max(score, 1)
+                print(f'\tGround Truth label: {label}\n\tPredicted:{preds}')
+            else:
+                print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id} slice: {slice_no} filename: {filename}')
+                _, preds = torch.max(score, 1)
+                print(f'\tGround Truth label: {label}\n\tPredicted:{preds}')
 
     def save_model(self, epoch, early_stop=False):
         d = datetime.datetime.now()
