@@ -101,7 +101,7 @@ ConfigurationDict = {
     'dataset_root': '',
     'labels_root': '',
     'save_dir_root': '',
-    'model_version': modelVersions.get(1),
+    'model_version': modelVersions.get(3),
     'batch_size': '',
     'n_workers': ''
 }
@@ -116,6 +116,7 @@ elif run_config == 'colab':
     music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
 else:
     music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
+    run_config = 'local'
 
 if not os.path.exists(music_dataset_path):
     print(f'Path: {music_dataset_path} does not exists. Exiting')
@@ -191,21 +192,24 @@ if __name__ == '__main__':
         b = Benchmark("[main.py] pytorch_dataset_timer")
         b.start_timer()
         # Create the Dataset Object
-        pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict)
-        print(f'\n***** [main.py]: emoMusicPT created*****\n\temoMusic slice_mode: {pytorch_dataset.slice_mode}\n\n')
+        pytorch_dataset = emoMusicPTDataset(slice_mode=True, env=ConfigurationDict)
+        print(f'\n***** [main.py]: emoMusicPT created*****\n')
 
-        # Make Train/Test splits indexes (at song level) -> maintain the order inside the song
         test_frac = 0.1
         train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
+
         # Plot splits
-        pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_song_level, train_indexes, test_indexes, val_indexes=None)
+        if not pytorch_dataset.slice_mode:
+            pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_song_level, train_indexes, test_indexes, val_indexes=None)
+        else:
+            pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_slice_level, train_indexes, test_indexes, val_indexes=None)
         # train_indexes, val_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
 
         # Defines Dataloaders
         train_set = emoMusicPTSubset(pytorch_dataset, train_indexes)
         test_set = emoMusicPTSubset(pytorch_dataset, test_indexes)
         # val_set = emoMusicPTSubset(pytorch_dataset, val_indexes)
-        print(f'\n***** [main.py]: emoMusicPTSubset for train/val/test created *****\n\n')
+        print(f'\n***** [main.py]: emoMusicPTSubset for train/test created *****\n\n')
 
         train_DataLoader = emoMusicPTDataLoader(train_set, batch_size=ConfigurationDict.get('batch_size'), shuffle=False, num_workers=int(ConfigurationDict.get('n_workers')))
         test_DataLoader = emoMusicPTDataLoader(test_set, batch_size=ConfigurationDict.get('batch_size'), shuffle=False, num_workers=int(ConfigurationDict.get('n_workers')))
@@ -214,14 +218,14 @@ if __name__ == '__main__':
         print(f'\n***** [main.py]: emoMusicPTDataLoader for train/test created *****\n\n')
         b.end_timer()
         del b
-
+        '''
         b = Benchmark("[main.py] pytorch_model_timer")
         b.start_timer()
         baseline_model = TorchModel(pytorch_dataset, train_DataLoader, test_DataLoader, val_DataLoader, save_dir_root=save_dir_root, version=ConfigurationDict.get("model_version"), n_gru=1)
 
         b.end_timer()
         del b
-
+        '''
 
         # %% TorchM5 model
         b = Benchmark("[main.py] TorchM5 model timer")

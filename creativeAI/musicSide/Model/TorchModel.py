@@ -112,7 +112,7 @@ class TorchModel(Module):
 
         # setting up input shape
         self.__version__ = version
-        self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, self.ex0_label_coords = train_dl.dataset[0]
+        self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, slice_no = train_dl.dataset[0]
         self.input_shape = self.example_0.shape
         print(f'Setting up input shape for the Model train_dl __getitem__:'
               f'\n\twaveform: {self.example_0}'
@@ -121,7 +121,7 @@ class TorchModel(Module):
               f'\n\tsong_id: {self.ex0_songid}'
               f'\n\tfilename: {self.ex0_filename}'
               f'\n\tlabel: {self.ex0_label}'
-              f'\n\tcoordinates in dataframe: {self.ex0_label_coords}')
+              f'\n\tslice_no: {slice_no}')
 
         self.kernel_features_maps = CNNHyperParams.get('kernel_features_maps')
         self.kernel_size = CNNHyperParams.get('kernel_size')

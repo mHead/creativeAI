@@ -64,7 +64,7 @@ class Runner(object):
         self.criterion = torch.nn.CrossEntropyLoss(weight=None, size_average=None, ignore_index=-100, reduce=None,
                                                    reduction='mean')
 
-    def run(self, current_epoch, mode='train', slice_mode=False):
+    def run(self, current_epoch, mode='train'):
         """
         Called one time for each epoch. It has to parse the whole dataset each time.
         :param current_epoch:
@@ -72,95 +72,57 @@ class Runner(object):
         :param mode: train or eval
         :param slice_mode: True or False
         :return:
-        """
-        self.model.train() if mode == 'train' else self.model.eval()
 
-        print(f'[Runner.run()] call for epoch: {current_epoch} / {self.settings.get("epochs")}')
-        if slice_mode:
-            '''
-            input of conv1D is  ttc (1, 1, 22050) take prediction for every slice (61 in one song)
-            when in slice_mode dataset expects indices ranging from 0 to 45357 such that:
-            - pass the song_index then convert that index in slice_index and loop 61 times
-            '''
-            epoch_loss = 0.0
-            epoch_acc = 0.0
-
-            model = u.set_device(self.model, self.device)
-            train_indices = self.model.train_dataloader.sampler.data_source.indices
-            train_indices.sort()
-            s = self.model.train_dataloader.dataset[54]
-            for song_idx in train_indices:
-                start_idx, end_idx = self.model.train_dataloader.song_idx_to_slices_range(song_idx)
-                for i in range(start_idx, end_idx):
-                    audio_segment, song_id, filename, emotion_label, coords = self.model.train_dataloader.dataset[i]
-
-            for batch, (audio_segment, song_id, filename, label, coords) in enumerate(self.model.train_dataloader):
-
-                # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
-                if self.model.name == 'TorchM5_music2emoCNN':
-                    score, flatten, log_softmax = self.model(audio_segment)
-                else:
-                    score, flatten = self.model(audio_segment)
-
-                loss = self.criterion(score, label)
-                acc = self.accuracy(score, label)
-
-                self.print_prediction(current_epoch, song_id, filename, label, score)
-
-                if mode == 'train':
-                    loss.backward()
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
-
-                epoch_loss += score.size(0) * loss.item()
-                epoch_acc += score.size(0) * acc
-
-            epoch_loss = epoch_loss / len(self.model.train_dataloader.dataset)
-            epoch_acc = epoch_acc / len(self.model.train_dataloader.dataset)
-        else:
-            '''
+        if not slice_mode:
             the input of conv1d is (1, 1, 1345050).
             When slice_mode is off dataset expects indices ranging from 0 to 743 such that:
             - pass the song_index and retrieve the whole song
-            '''
-            epoch_loss = 0.0
-            epoch_acc_running_corrects = 0.0
+        else:
+            input of conv1D is  ttc (1, 1, 22050) take prediction for every slice (61 in one song)
+            when in slice_mode dataset expects indices ranging from 0 to 45357 such that:
+            - pass the index and retrieve slice, labels and metadata
+        """
+        self.model.train() if mode == 'train' else self.model.eval()
+        print(f'[Runner.run()] call for epoch: {current_epoch} / {self.settings.get("epochs")}')
 
-            # model = u.set_device(self.model, self.device)
+        epoch_loss = 0.0
+        epoch_acc_running_corrects = 0.0
 
-            for batch, (song_data, song_id, filename, dominant_label, coords) in enumerate(self.model.train_dataloader):
-                if cuda.is_available() and cuda.device_count() > 0:
-                    song_data = song_data.to('cuda')
-                    dominant_label = dominant_label.to('cuda')
-                    self.model = self.model.to('cuda')
+        # model = u.set_device(self.model, self.device)
+        # if slice_mode=False, slice_no is always 0
+        for batch, (song_data, song_id, filename, dominant_label, slice_no) in enumerate(self.model.train_dataloader):
+            if cuda.is_available() and cuda.device_count() > 0:
+                song_data = song_data.to('cuda')
+                dominant_label = dominant_label.to('cuda')
+                self.model = self.model.to('cuda')
 
-                    # clear gradients
-                if mode == 'train':
-                    self.optimizer.zero_grad()
+                # clear gradients
+            if mode == 'train':
+                self.optimizer.zero_grad()
 
-                # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
-                # compute outputs
-                if self.model.name == 'TorchM5_music2emoCNN':
-                    output = self.model(song_data)
-                    loss = F.nll_loss(output.squeeze(), dominant_label)
-                else:
-                    score, flatten = self.model(song_data)
-                    loss = self.criterion(score, dominant_label)
+            # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
+            # compute outputs
+            if self.model.name == 'TorchM5_music2emoCNN':
+                output = self.model(song_data)
+                loss = F.nll_loss(output.squeeze(), dominant_label)
+            else:
+                score, flatten = self.model(song_data)
+                loss = self.criterion(score, dominant_label)
 
-                # print first prediction plus every 10
-                self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
+            # print first prediction plus every 10
+            self.print_prediction(current_epoch, song_id, filename, dominant_label, score)
 
-                pred = self.get_likely_index(score)
-                epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
+            pred = self.get_likely_index(score)
+            epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
 
-                if mode == 'train':
-                    loss.backward()
-                    self.optimizer.step()
+            if mode == 'train':
+                loss.backward()
+                self.optimizer.step()
 
-                epoch_loss += score.size(0) * loss.item()
+            epoch_loss += score.size(0) * loss.item()
 
-            epoch_loss = epoch_loss / float(len(self.model.train_dataloader))
-            epoch_acc = epoch_acc_running_corrects / float(len(self.model.train_dataloader))
+        epoch_loss = epoch_loss / float(len(self.model.train_dataloader))
+        epoch_acc = epoch_acc_running_corrects / float(len(self.model.train_dataloader))
         return epoch_loss, epoch_acc
 
     def early_stop(self, loss, epoch):
@@ -196,37 +158,20 @@ class Runner(object):
         train_losses = np.zeros(self.settings.get('epochs'))
         train_accuracies = np.zeros(self.settings.get('epochs'))
 
-        if self.model.emoMusicPTDataset.slice_mode:
-            for epoch in range(self.settings.get('epochs')):
-                print(f'[Runner.run(train_dl, {epoch + 1}, slice_mode=True)] called by Runner.train()')
-                train_loss, train_acc = self.run(epoch + 1, mode='train', slice_mode=True)
-                # Store epoch stats
-                train_losses[epoch] = train_loss
-                train_accuracies[epoch] = train_acc
+        for epoch in range(self.settings.get('epochs')):
+            print(f'[Runner.run(train_dl, {epoch + 1}, {self.model.emoMusicPTDataset.slice_mode})] called by Runner.train()')
+            train_loss, train_acc = self.run(epoch + 1, 'train')
+            # Store epoch stats
+            train_losses[epoch] = train_loss
+            train_accuracies[epoch] = train_acc
 
-                print(f'[Runner.train()]Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
-                      f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
+            print(f'[Runner.train()] Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
+                  f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
 
-                if self.early_stop(train_loss, epoch + 1):
-                    self.save_model(epoch=epoch, early_stop=True)
-                    break
-            train_done = True
-
-        else:
-            for epoch in range(self.settings.get('epochs')):
-                print(f'[Runner.run(train_dl, {epoch + 1}, slice_mode=False)] called by Runner.train()')
-                train_loss, train_acc = self.run(epoch + 1, 'train', slice_mode=False)
-                # Store epoch stats
-                train_losses[epoch] = train_loss
-                train_accuracies[epoch] = train_acc
-
-                print(f'[Runner.train()] Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
-                      f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
-
-                if self.early_stop(train_loss, epoch + 1):
-                    self.save_model(epoch=epoch, early_stop=True)
-                    break
-            train_done = True
+            if self.early_stop(train_loss, epoch + 1):
+                self.save_model(epoch=epoch, early_stop=True)
+                break
+        train_done = True
 
         if train_done:
             print(f'[Runner: {self}] Training finished. Going to test the network')
@@ -250,15 +195,9 @@ class Runner(object):
         print(f'Starting evaluation for 1 epoch')
         t.start_timer()
 
-        if self.model.emoMusicPTDataset.slice_mode:
-            print(f'[Runner.run(test_dl, 1, slice_mode=True)] called by Runner.eval()')
-            test_loss, test_acc = self.run(1, mode='eval', slice_mode=True)
-            eval_done = True
-
-        else:
-            print(f'[Runner.run(test_dl, 1, slice_mode=False)] called by Runner.eval()')
-            test_loss, test_acc = self.run(1, 'eval', slice_mode=False)
-            eval_done = True
+        print(f'[Runner.run(test_dl, 1, slice_mode=False)] called by Runner.eval()')
+        test_loss, test_acc = self.run(1, 'eval')
+        eval_done = True
 
         if eval_done:
             print(f'[Runner.eval(): {self}] Evaluation on test set finished.')

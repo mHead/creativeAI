@@ -399,6 +399,7 @@ def extract_labels(labels_csv_path):
     single_label_array = np.asarray(single_label_array)
     # print(f'{labels.shape} : {labels}')
     assert len(single_label_array) == len(song_ids) == labels.shape[0]
+    labels = labels.reshape(labels.shape[0]*labels.shape[1])
     return labels, song_ids, single_label_array
 
 
