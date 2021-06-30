@@ -1,5 +1,5 @@
 # creativeAI
-**Code is under deployment** <br>
+**Code is under development** <br>
 Master's Degree Thesis: translate music language in the visive art language. <br>
 Codebase created and maintained by Marco Testa. <br>
 
@@ -9,10 +9,10 @@ Given:
 - Music domain : D(music) = M
 - Image domain : D(image) = I
 ```
-The aim of the work is to build up a Deep Neural Network capable of translating from M to I.
+The aim of the work is to build up a Deep Neural Network capable of translating from M to I via emotions.
 
 ## Datasets
-To get te most out of this repo, please __download__ contact me at marco_testa@icloud.com
+https://cvml.unige.ch/databases/emoMusic/ but if you want the preprocessed version used in this work, contact me at marco_testa@icloud.com
 
 ## High-level pipeline
 ```
