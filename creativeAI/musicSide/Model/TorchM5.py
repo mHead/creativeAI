@@ -3,6 +3,7 @@ import torchaudio
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import os
 
 from ..DatasetMusic2emotion.tools import va2emotion as va2emo
 
@@ -13,7 +14,10 @@ class TorchM5(nn.Module):
     """
     def __init__(self, dataset, train_dl, test_dl, save_dir_root, hyperparams):
         super(TorchM5, self).__init__()
-        self.save_dir = save_dir_root
+        save_dir_m5 = os.path.join(save_dir_root, 'TorchM5')
+        if not os.path.exists(save_dir_m5):
+            os.mkdir(save_dir_m5)
+        self.save_dir = save_dir_m5
         self.emoMusicPTDataset = dataset
         self.train_dataloader = train_dl
         self.test_dataloader = test_dl

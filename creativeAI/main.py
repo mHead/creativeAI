@@ -192,7 +192,7 @@ if __name__ == '__main__':
         b = Benchmark("[main.py] pytorch_dataset_timer")
         b.start_timer()
         # Create the Dataset Object
-        pytorch_dataset = emoMusicPTDataset(slice_mode=True, env=ConfigurationDict)
+        pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict)
         print(f'\n***** [main.py]: emoMusicPT created*****\n')
 
         test_frac = 0.1
@@ -230,9 +230,7 @@ if __name__ == '__main__':
         # %% TorchM5 model
         b = Benchmark("[main.py] TorchM5 model timer")
         b.start_timer()
-        save_dir_m5 = os.path.join(save_dir_root, 'TorchM5')
-        if not os.path.exists(save_dir_m5):
-            os.mkdir(save_dir_m5)
+
 
         hyperparams = {
             "n_input": 1,  # the real audio channel is calles n_input
@@ -244,7 +242,7 @@ if __name__ == '__main__':
             "groups": 1,
         }
 
-        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, save_dir_root=save_dir_m5, hyperparams=hyperparams)
+        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, save_dir_root=save_dir_root, hyperparams=hyperparams)
 
         b.end_timer()
         del b
@@ -255,7 +253,7 @@ if __name__ == '__main__':
         # Defining training Policies
         TrainingSettings = {
             "batch_size": 4,
-            "epochs": 40,
+            "epochs": 1,
             "print_preds_every": 30,
             "learning_rate": 0.01,
             "stopping_rate": 1e-7,

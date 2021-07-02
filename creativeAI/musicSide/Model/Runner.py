@@ -43,7 +43,9 @@ class Runner(object):
         self.stopping_rate = self.settings.get('stopping_rate')
         self.tensorboard_outs_path = os.path.join(self.model.save_dir, self.settings.get('tensorboard_outs'))
         self.models_save_dir = self.model.save_dir
-        self.best_model_to_save_path = _bundle.get("save_directory")
+        self.best_model_to_save_path = os.path.join(self.models_save_dir, _bundle.get("save_directory"))
+        if not os.path.exists(self.best_model_to_save_path):
+            os.mkdir(self.best_model_to_save_path)
         # %%Write the graph to be read on Tensorboard
         SummaryWriter()
         self.writer = SummaryWriter(self.tensorboard_outs_path, filename_suffix=self.model.name)
@@ -255,13 +257,11 @@ class Runner(object):
         if mode == 'train':
             print(f'Saving..... Train Curves\tto {save_path + "_timestamp_train_curve.png"}\n')
             d = datetime.datetime.now()
-            plt.savefig(
-                save_path + f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_train_curves.png")
+            plt.savefig(os.path.join(save_path, f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_train_curves.png"))
         elif mode == 'eval':
             print(f'Saving..... Test Curves\tto {save_path + "_timestamp_test_curve.png"}\n')
             d = datetime.datetime.now()
-            plt.savefig(
-                save_path + f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_test_curves.png")
+            plt.savefig(os.path.join(save_path + f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_test_curves.png"))
         else:
             print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
             sys.exit(self.FAILURE)
@@ -281,7 +281,7 @@ class Runner(object):
 
     def save_model(self, epoch, early_stop=False):
         d = datetime.datetime.now()
-        path = os.path.join(self.best_model_to_save_path, self.model.name)
+        path = self.best_model_to_save_path
 
         if early_stop:
             print(f'Saving checkpoint model...')
@@ -291,7 +291,7 @@ class Runner(object):
                 "optim_state": self.optimizer.state_dict(),
             }
             # remember: n_channel = kernel features maps
-            path = path + f'_kfm={self.model.n_channel}_{u.format_timestamp(d)}_checkpoint_model.pth'
+            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}_{u.format_timestamp(d)}_checkpoint_model.pth')
             torch.save(checkpoint, path)
             # to load it
             # loaded_checkpoint = torch.load(path)
@@ -304,7 +304,7 @@ class Runner(object):
             # print(optimizer.state_dict())
         else:
             print(f'Saving best model...')
-            path = path + f'_kfm={self.model.n_channel}_{u.format_timestamp(d)}_best_model.pth'
+            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}_{u.format_timestamp(d)}_best_model.pth')
             torch.save(self.model.state_dict(), path)
             # in order to load the model we have to
             # loaded_model = TorchM5(...)
