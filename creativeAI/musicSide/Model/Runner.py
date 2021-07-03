@@ -112,7 +112,8 @@ class Runner(object):
                 loss = self.criterion(score, dominant_label)
 
             # print first prediction plus every 10
-            self.print_prediction(current_epoch, song_id, slice_no, filename, dominant_label, score)
+            if mode == 'train':
+                self.print_prediction(current_epoch, song_id, slice_no, filename, dominant_label, score)
 
             pred = self.get_likely_index(score)
             epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
