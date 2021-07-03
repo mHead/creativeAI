@@ -3,11 +3,9 @@
 # 25 may '21 : generate csv containing music and emotion label every 500ms
 import os
 import math as m
-#print('****\tmusicSide.DatasetMusic2emotion.tools.va2emotion.py imported\t****')
-from typing import List, Any, Union
-
 import numpy as np
 import pandas as pd
+
 EMOTION_COLORS = {
     'amusement': '#ee82ee',
     'contentment': '#ffff00',
@@ -19,6 +17,7 @@ EMOTION_COLORS = {
     'sadness': '#228b22',
 
 }
+
 EMOTIONS_ = {
     0: 'amusement',
     1: 'contentment',
@@ -52,6 +51,7 @@ QUADRANTS_EMOTIONS = {
     'Q4.1': 1,
     'Q4.2': 1
 }
+
 EMOTION_COORDINATES = {  # Q4.1 and Q3.2 are not used
     0: [0.55, 0.2],  # amusement     Q1.1
     1: [0.82, -0.56],  # contentment   Q4.2

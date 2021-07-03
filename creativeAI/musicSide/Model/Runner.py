@@ -41,11 +41,11 @@ class Runner(object):
 
         self.learning_rate = self.settings.get('learning_rate')
         self.stopping_rate = self.settings.get('stopping_rate')
-        self.tensorboard_outs_path = os.path.join(self.model.save_dir, self.settings.get('tensorboard_outs'))
-        self.models_save_dir = self.model.save_dir
-        self.best_model_to_save_path = os.path.join(self.models_save_dir, _bundle.get("save_directory"))
-        if not os.path.exists(self.best_model_to_save_path):
-            os.mkdir(self.best_model_to_save_path)
+        # Save paths
+        self.best_model_to_save_path = self.set_saves_path( _bundle.get("best_models_save_dir"))
+        self.plots_save_path = self.set_saves_path(_bundle.get("plots_save_dir"))
+        self.tensorboard_outs_path = self.set_saves_path(_bundle.get("tensorboard_outs"))
+
         # %%Write the graph to be read on Tensorboard
         SummaryWriter()
         self.writer = SummaryWriter(self.tensorboard_outs_path, filename_suffix=self.model.name)
@@ -176,7 +176,7 @@ class Runner(object):
         train_done = True
 
         if train_done:
-            print(f'[Runner: {self}] Training finished. Going to test the network')
+            print(f'[Runner: {self}] Training finished.')
             # Print training statistics
             self.plot_scatter_training_stats(train_losses, train_accuracies, self.settings.get('epochs'), mode='train')
             best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
@@ -253,15 +253,15 @@ class Runner(object):
                 ax.set_ylabel('Accuracies (%)')
                 ax.legend(loc='upper left', scatterpoints=1, frameon=True)
         plt.tight_layout()
-        save_path = os.path.join(self.model.save_dir, self.settings.get('plot_save_dir'))
+
         if mode == 'train':
-            print(f'Saving..... Train Curves\tto {save_path + "_timestamp_train_curve.png"}\n')
+            print(f'Saving..... Train Curves\tto {self.plots_save_path + "_timestamp_train_curve.png"}\n')
             d = datetime.datetime.now()
-            plt.savefig(os.path.join(save_path, f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_train_curves.png"))
+            plt.savefig(os.path.join(self.plots_save_path, f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_train_curves.png"))
         elif mode == 'eval':
-            print(f'Saving..... Test Curves\tto {save_path + "_timestamp_test_curve.png"}\n')
+            print(f'Saving..... Test Curves\tto {self.plots_save_path + "_timestamp_test_curve.png"}\n')
             d = datetime.datetime.now()
-            plt.savefig(os.path.join(save_path + f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_test_curves.png"))
+            plt.savefig(os.path.join(self.plots_save_path + f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_test_curves.png"))
         else:
             print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
             sys.exit(self.FAILURE)
@@ -291,7 +291,7 @@ class Runner(object):
                 "optim_state": self.optimizer.state_dict(),
             }
             # remember: n_channel = kernel features maps
-            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}_{u.format_timestamp(d)}_checkpoint_model.pth')
+            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}_ts={u.format_timestamp(d)}_checkpoint_model.pth')
             torch.save(checkpoint, path)
             # to load it
             # loaded_checkpoint = torch.load(path)
@@ -304,7 +304,7 @@ class Runner(object):
             # print(optimizer.state_dict())
         else:
             print(f'Saving best model...')
-            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}_{u.format_timestamp(d)}_best_model.pth')
+            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}_ts={u.format_timestamp(d)}_best_model.pth')
             torch.save(self.model.state_dict(), path)
             # in order to load the model we have to
             # loaded_model = TorchM5(...)
@@ -312,6 +312,14 @@ class Runner(object):
             # loaded_model.eval()
             # for p in loaded_model.parameters():
             #   print(p)
+
+    def set_saves_path(self, path):
+        _path = os.path.join(self.model.save_dir, path)
+
+        if not os.path.exists(_path):
+            os.mkdir(_path)
+
+        return _path
 
 
 

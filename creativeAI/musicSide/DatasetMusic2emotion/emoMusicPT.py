@@ -1,4 +1,5 @@
 import sys
+import datetime
 import torch
 import torchaudio
 from torch.utils.data import Dataset
@@ -23,13 +24,15 @@ _SAMPLE_RATE = 44100
 _N_SLICES_PER_SONG = 61
 _SLICE_SIZE = 22050
 _SAMPLE_TOTAL_DURATION = _SLICE_SIZE * _N_SLICES_PER_SONG
-_N_CLASSES = 8
+_N_CLASSES = len(va2emo.EMOTIONS_)
 
 SubsetsColors = {
     'train_set': '#30A666',  # verde scuro
     'test_set': '#A8251E',  # verde chiaro
     'val_set': '#B1E2F0',  # rosso scuro
 }
+
+EmotionColors = va2emo.EMOTION_COLORS
 
 
 class emoMusicPTDataset(Dataset):
@@ -56,11 +59,12 @@ class emoMusicPTDataset(Dataset):
             self._SONGID_DOMINANT_EMO_CSV = os.path.join(env.get('labels_root'), _SINGLE_LABEL_PER_SONG_CSV)
             self._SONGID_EMOTIONS_CSV = os.path.join(env.get('labels_root'), _MULTI_LABELS_PER_SONG_CSV)
             self._MUSIC_DATA_ROOT = env.get('music_data_root')
+            self._SAVE_DIR_ROOT = env.get('save_dir_root')
         else:
             print(f'Configuration Environment failed!')
             sys.exit(-1)
 
-        self.name = 'emoMusicPT: pytorch Dataset wrapper'
+        self.name = 'emoMusicPTDataset'
         self.slice_mode = slice_mode
         self.num_classes = _N_CLASSES
 
@@ -283,15 +287,22 @@ class emoMusicPTDataset(Dataset):
         for col in range(n_cols):
             ax = axes[col]
             if col == 0:
-                # ax.plot(emotion_axes, train_emotion_percentiles, SubsetsColors.get('train_set'), label="Emotion distribution over training set")
-                ax.bar(emotion_axes, train_emotion_percentiles, width=0.8, bottom=0, align='center', color=SubsetsColors.get('train_set'), tick_label=emotion_axes)
-                #for e in emotion_axes:
+                ax.bar(emotion_axes, train_emotion_percentiles,
+                       width=0.8, bottom=0,
+                       align='center',
+                       color=[e for e in EmotionColors.values()], edgecolor=SubsetsColors.get('train_set'),
+                       tick_label=emotion_axes)
+
                 ax.set_xlabel('emotions')
                 ax.set_ylabel('Samples (%)')
                 ax.set_title(f'Train')
             elif col == 1:
-                # ax.plot(emotion_axes, test_emotion_percentiles, SubsetsColors.get('test_set'), label="Emotion distribution over test set")
-                ax.bar(emotion_axes, test_emotion_percentiles, width=0.8, bottom=0, align='center', color=SubsetsColors.get('test_set'), tick_label=emotion_axes)
+                ax.bar(emotion_axes, test_emotion_percentiles,
+                       width=0.8, bottom=0,
+                       align='center',
+                       color=[e for e in EmotionColors.values()], edgecolor=SubsetsColors.get('test_set'),
+                       tick_label=emotion_axes)
+
                 ax.set_xlabel('emotions')
                 ax.set_ylabel('Samples (%)')
                 ax.set_title(f'Test')
@@ -307,6 +318,18 @@ class emoMusicPTDataset(Dataset):
                 ax.legend(loc='upper left', scatterpoints=1, frameon=True)
 
         plt.tight_layout()
+
+        path_to_save = os.path.join(self._SAVE_DIR_ROOT, self.name)
+        if not os.path.exists(path_to_save):
+            os.mkdir(path_to_save)
+
+        path_to_save = os.path.join(path_to_save, 'plots')
+        if not os.path.exists(path_to_save):
+            os.mkdir(path_to_save)
+        d = datetime.datetime.now()
+        path_to_save = os.path.join(path_to_save, f'{u.format_timestamp(d)}_emotion_distribution_over_subsets.png')
+        plt.savefig(path_to_save)
+
         plt.show()
 
     def print_info(self):
@@ -378,7 +401,7 @@ class emoMusicPTDataLoader(DataLoader):
     """
     Extends torch.utils.data.DataLoader. Combines a dataset and a sampler and provides an iterable over the given dataset
     """
-    def __init__(self, dataset: emoMusicPTSubset, batch_size=4, shuffle=False, collate_fn=None, num_workers=1, pin_memory=False):
+    def __init__(self, dataset: emoMusicPTSubset, batch_size=1, shuffle=False, collate_fn=None, num_workers=1, pin_memory=False):
         super().__init__(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers, pin_memory=pin_memory)
         '''   
         :param dataset:(torch.data.utils.Dataset) a map-style [implements __getitem__() and __len__()] or iterable-style
@@ -421,12 +444,4 @@ class emoMusicPTDataLoader(DataLoader):
 
     def __len__(self):
         return self.len
-
-    def song_idx_to_slices_range(self, n):
-        start = n * _N_SLICES_PER_SONG
-        end = start + _N_SLICES_PER_SONG
-
-        return start, end
-
-
 # %%

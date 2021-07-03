@@ -12,10 +12,9 @@ from musicSide.Model.TorchModel import TorchModel
 from musicSide.Model.TorchM5 import TorchM5
 from musicSide.Model.Runner import Runner
 from musicSide.Model.Benchmark import Benchmark
-from sklearn.model_selection import StratifiedShuffleSplit
 import torch
 import torch.cuda as cuda
-from torch.utils.data import Subset
+
 verbose = False
 if verbose:
     print(f'Using torch version: {torch.__version__}')
@@ -62,14 +61,18 @@ for arg in argv:
 
     if arg.__eq__("--verbose"):
         verbose = True
+
     if arg.__eq__("--repo_root"):
         pick_repo = True
     if arg.__eq__("--generate_csv"):
         generate_csv = True
+
     if arg.__eq__("--legion"):
         run_config = 'legion'
-    if arg.__eq__("--colab"):
+    elif arg.__eq__("--colab"):
         run_config = 'colab'
+    else:
+        run_config = 'local'
 
 # print(repo_root)
 assert len(repo_root) != 0
@@ -242,7 +245,7 @@ if __name__ == '__main__':
             "groups": 1,
         }
 
-        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, save_dir_root=save_dir_root, hyperparams=hyperparams)
+        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, hyperparams=hyperparams)
 
         b.end_timer()
         del b
@@ -271,9 +274,9 @@ if __name__ == '__main__':
         }
 
         TrainSavingsPolicies = {
-            "plot_save_dir": 'pytorch_outs/plots',
-            "save_directory": 'pytorch_outs/best_models',
-            "tensorboard_outs": 'pytorch_outs/tb_outputs',
+            "plots_save_dir": 'plots',
+            "best_models_save_dir": 'best_models',
+            "tensorboard_outs": 'tb_outputs',
             "monitor": 'val_categorical_accuracy',
             "quiet": 0,
             "verbose": 1

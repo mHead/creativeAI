@@ -12,26 +12,24 @@ class TorchM5(nn.Module):
     """
     The following architecture is modeled after the M5 network architecture described in https://arxiv.org/pdf/1610.00087.pdf
     """
-    def __init__(self, dataset, train_dl, test_dl, save_dir_root, hyperparams):
+    def __init__(self, dataset, train_dl, test_dl, hyperparams):
         super(TorchM5, self).__init__()
-        save_dir_m5 = os.path.join(save_dir_root, 'TorchM5')
-        if not os.path.exists(save_dir_m5):
-            os.mkdir(save_dir_m5)
-        self.save_dir = save_dir_m5
         self.emoMusicPTDataset = dataset
         self.train_dataloader = train_dl
         self.test_dataloader = test_dl
         self.name = 'TorchM5_music2emoCNN_criterion_version'
+        save_dir_m5 = os.path.join(self.emoMusicPTDataset._SAVE_DIR_ROOT, self.name)
+        if not os.path.exists(save_dir_m5):
+            os.mkdir(save_dir_m5)
+        self.save_dir = save_dir_m5
         self.labelsDict = va2emo.EMOTIONS_
-        self.num_classes = len(self.labelsDict)
+        self.num_classes = hyperparams.get('n_output')
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.n_channel = hyperparams.get("kernel_features_maps")
-        self.kernel_features_maps = self.n_channel      # redundant but called during print_training_stats, common to models
+        self.kernel_features_maps = self.n_channel  # redundant but called during print_training_stats, common to models
         self.n_input = hyperparams.get("n_input")
         self.n_output = hyperparams.get("n_output")
-
-
 
         # setting up input shape
         self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, slice_no = self.train_dataloader.dataset[0]
