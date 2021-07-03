@@ -154,7 +154,7 @@ class Runner(object):
 
         t = Benchmark("[Runner] train call")
         print(f'Starting training loop of {self.model.name} for {self.settings.get("epochs")} epochs')
-        print(f'The model has {self.count_parameters(self.model)} parameters')
+        print(f'\nThe model has {self.count_parameters(self.model)} parameters\n')
         t.start_timer()
 
         train_losses = np.zeros(self.settings.get('epochs'))
