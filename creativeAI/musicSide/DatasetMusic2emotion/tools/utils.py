@@ -39,7 +39,7 @@ __START_CLIP = 15000
 __END_CLIP = 45000
 __OFFSET = 250
 __nSLICES = 61
-
+__nCLASSES = 8
 __INPUT_500ms = 500
 __INPUT_500ms_SAMPLES = 22050
 __CLIP_LENGTH = __nSLICES * __INPUT_500ms_SAMPLES
@@ -473,19 +473,19 @@ def format_timestamp(current_timestamp: datetime):
 def to_one_hot(y):
     y_one_hot = []
     for i in range(len(y)):
-        one_hot = np.zeros(8)  # TODO: remove hardcoded 8
-        for label in range(8):
+        one_hot = np.zeros(__nCLASSES)
+        for label in range(__nCLASSES):
             if label == y[i][0]:
                 one_hot[label] = 1
         y_one_hot.append(one_hot)
 
-    y_one_hot = np.array(y_one_hot).reshape(y.shape[0] * y.shape[1], 8)
+    y_one_hot = np.array(y_one_hot).reshape(y.shape[0] * y.shape[1], __nCLASSES)
     return y_one_hot
 
 def int_to_one_hot(y):
     pt = True
 
-    y_one_hot = np.zeros(8)
+    y_one_hot = np.zeros(__nCLASSES)
 
     for i in y_one_hot:
         if i == y:
