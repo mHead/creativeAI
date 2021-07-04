@@ -25,6 +25,8 @@ class TorchM5(nn.Module):
         self.labelsDict = va2emo.EMOTIONS_
         self.num_classes = hyperparams.get('n_output')
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.drop_out = hyperparams.get("dropout")
+        self.drop_out_p = hyperparams.get("dropout_p")
 
         # kernel setup
         self.n_channel = hyperparams.get("kernel_features_maps")
@@ -54,23 +56,23 @@ class TorchM5(nn.Module):
                                stride=hyperparams.get("kernel_shift"))
         self.bn1 = nn.BatchNorm1d(self.n_channel)
         self.pool1 = nn.MaxPool1d(4)
-        if hyperparams.get("dropout"):
-            self.dropout1 = nn.Dropout(0.25)
+        if self.drop_out:
+            self.dropout1 = nn.Dropout(self.drop_out_p)
         self.conv2 = nn.Conv1d(self.n_channel, self.n_channel, kernel_size=3)
         self.bn2 = nn.BatchNorm1d(self.n_channel)
         self.pool2 = nn.MaxPool1d(4)
-        if hyperparams.get("dropout"):
-            self.dropout2 = nn.Dropout(0.25)
+        if self.drop_out:
+            self.dropout2 = nn.Dropout(self.drop_out_p)
         self.conv3 = nn.Conv1d(self.n_channel, 2 * self.n_channel, kernel_size=3)
         self.bn3 = nn.BatchNorm1d(2 * self.n_channel)
         self.pool3 = nn.MaxPool1d(4)
-        if hyperparams.get("dropout"):
-            self.dropout3 = nn.Dropout(0.25)
+        if self.drop_out:
+            self.dropout3 = nn.Dropout(self.drop_out_p)
         self.conv4 = nn.Conv1d(2 * self.n_channel, 2 * self.n_channel, kernel_size=3)
         self.bn4 = nn.BatchNorm1d(2 * self.n_channel)
         self.pool4 = nn.MaxPool1d(4)
-        if hyperparams.get("dropout"):
-            self.dropout4 = nn.Dropout(0.25)
+        if self.drop_out:
+            self.dropout4 = nn.Dropout(self.drop_out_p)
         if self.name == "TorchM5_music2emoCNN_criterion_version":
             self.flatten = nn.Flatten()
         self.fc1 = nn.Linear(2 * self.n_channel, self.num_classes)
@@ -79,15 +81,23 @@ class TorchM5(nn.Module):
         x = self.conv1(x)
         x = F.relu(self.bn1(x))
         x = self.pool1(x)
+        if self.drop_out:
+            x = self.dropout1(x)
         x = self.conv2(x)
         x = F.relu(self.bn2(x))
         x = self.pool2(x)
+        if self.drop_out:
+            x = self.dropout2(x)
         x = self.conv3(x)
         x = F.relu(self.bn3(x))
         x = self.pool3(x)
+        if self.drop_out:
+            x = self.dropout3(x)
         x = self.conv4(x)
         x = F.relu(self.bn4(x))
         x = self.pool4(x)
+        if self.drop_out:
+            x = self.dropout4(x)
         ks = x.shape[-1]
         if isinstance(ks, torch.Tensor):
             ks = ks.item()
@@ -104,3 +114,7 @@ class TorchM5(nn.Module):
             flatten = self.flatten(x)
             logits = self.fc1(flatten)
             return logits, flatten
+
+    @property
+    def dropout(self):
+        return self._dropout

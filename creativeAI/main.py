@@ -269,6 +269,7 @@ if __name__ == '__main__':
             "kernel_features_maps": 8 * 16,  # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
             "groups": 1,
             "dropout": True,
+            "dropout_p": 0.25
         }
 
         model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, hyperparams=hyperparams)
