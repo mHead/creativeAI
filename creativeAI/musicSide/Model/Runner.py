@@ -111,8 +111,9 @@ class Runner(object):
                 score, flatten = self.model(song_data)
                 loss = self.criterion(score, dominant_label)
 
-            # print first prediction plus every 10
-            if mode == 'train':
+            # print first prediction plus every 'print_preds_every'
+            # do not print all predictions, but the ones every 50 batches
+            if mode == 'train' and batch % 10 == 0:
                 self.print_prediction(current_epoch, song_id, slice_no, filename, dominant_label, score)
 
             pred = self.get_likely_index(score)
