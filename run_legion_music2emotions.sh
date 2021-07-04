@@ -36,7 +36,7 @@ mkdir -p /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
 
 if [ -z "$(ls -A /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav)" ]; then
   echo "The folder: creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav is empty... going to move the dataset into the data_root inside the repository"
-  cp -R /home/mtesta/data/clips_30seconds_preprocessed /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
+  cp -R /home/mtesta/data/clips_30seconds_preprocessed_BIG /home/mtesta/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
 else
   echo "The raw files are already inside the repo path"
 fi

@@ -26,10 +26,13 @@ class TorchM5(nn.Module):
         self.num_classes = hyperparams.get('n_output')
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        # kernel setup
         self.n_channel = hyperparams.get("kernel_features_maps")
         self.kernel_features_maps = self.n_channel  # redundant but called during print_training_stats, common to models
         self.n_input = hyperparams.get("n_input")
         self.n_output = hyperparams.get("n_output")
+        self.kernel_size = hyperparams.get("kernel_size")
+        self.kernel_shift = hyperparams.get("kernel_shift")
 
         # setting up input shape
         self.example_0, self.ex0_songid, self.ex0_filename, self.ex0_label, slice_no = self.train_dataloader.dataset[0]

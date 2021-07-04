@@ -258,11 +258,24 @@ class Runner(object):
         if mode == 'train':
             print(f'Saving..... Train Curves\tto {self.plots_save_path + "_timestamp_train_curve.png"}\n')
             d = datetime.datetime.now()
-            plt.savefig(os.path.join(self.plots_save_path, f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_train_curves.png"))
+            plt.savefig(os.path.join(self.plots_save_path, f"{self.model.name}_kfm={self.model.kernel_features_maps}"
+                                                           f'_ksz={self.model.kernel_size}'
+                                                           f'_ksf={self.model.kernel_shift}'
+                                                           f'_sm={self.model.emoMusicPTDataset.slice_mode}'
+                                                           f'_bs={self.settings.get("batch_size")}'
+                                                           f'_ep={self.settings.get("epochs")}'
+                                                           f"_{u.format_timestamp(d)}_train_curves.png"))
         elif mode == 'eval':
             print(f'Saving..... Test Curves\tto {self.plots_save_path + "_timestamp_test_curve.png"}\n')
             d = datetime.datetime.now()
-            plt.savefig(os.path.join(self.plots_save_path + f"{self.model.name}_kfm={self.model.kernel_features_maps}_{u.format_timestamp(d)}_test_curves.png"))
+            plt.savefig(os.path.join(self.plots_save_path, f"{self.model.name}"
+                                                           f"_kfm={self.model.kernel_features_maps}"
+                                                           f'_ksz={self.model.kernel_size}'
+                                                           f'_ksf={self.model.kernel_shift}'
+                                                           f'_sm={self.model.emoMusicPTDataset.slice_mode}'
+                                                           f'_bs={self.settings.get("batch_size")}'
+                                                           f'_ep={self.settings.get("epochs")}'
+                                                           f"_{u.format_timestamp(d)}_test_curves.png"))
         else:
             print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
             sys.exit(self.FAILURE)
@@ -272,13 +285,13 @@ class Runner(object):
     def print_prediction(self, current_epoch, song_id, slice_no, filename, label, score):
         if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
             if not self.model.emoMusicPTDataset.slice_mode:
-                print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id} filename: {filename}')
+                print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id}')
                 _, preds = torch.max(score, 1)
-                print(f'\tGround Truth label: {label}\n\tPredicted:{preds}')
+                print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
             else:
-                print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id} slice: {slice_no} filename: {filename}')
+                print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id+slice_no: {song_id}+{slice_no}')
                 _, preds = torch.max(score, 1)
-                print(f'\tGround Truth label: {label}\n\tPredicted:{preds}')
+                print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
 
     def save_model(self, epoch, early_stop=False):
         d = datetime.datetime.now()
@@ -292,7 +305,13 @@ class Runner(object):
                 "optim_state": self.optimizer.state_dict(),
             }
             # remember: n_channel = kernel features maps
-            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}_ts={u.format_timestamp(d)}_checkpoint_model.pth')
+            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}'
+                                      f'_ksz={self.model.kernel_size}'
+                                      f'_ksf={self.model.kernel_shift}'
+                                      f'_sm={self.model.emoMusicPTDataset.slice_mode}'
+                                      f'_bs={self.settings.get("batch_size")}'
+                                      f'_ep={self.settings.get("epochs")}'
+                                      f'_ts={u.format_timestamp(d)}_checkpoint_model.pth')
             torch.save(checkpoint, path)
             # to load it
             # loaded_checkpoint = torch.load(path)
@@ -305,7 +324,13 @@ class Runner(object):
             # print(optimizer.state_dict())
         else:
             print(f'Saving best model...')
-            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}_ts={u.format_timestamp(d)}_best_model.pth')
+            path = os.path.join(path, f'{self.model.name}_kfm={self.model.n_channel}'
+                                      f'_ksz={self.model.kernel_size}'
+                                      f'_ksf={self.model.kernel_shift}'
+                                      f'_sm={self.model.emoMusicPTDataset.slice_mode}'
+                                      f'_bs={self.settings.get("batch_size")}'
+                                      f'_ep={self.settings.get("epochs")}'
+                                      f'_ts={u.format_timestamp(d)}_best_model.pth')
             torch.save(self.model.state_dict(), path)
             # in order to load the model we have to
             # loaded_model = TorchM5(...)

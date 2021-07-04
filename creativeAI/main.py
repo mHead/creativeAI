@@ -81,6 +81,17 @@ music_data_root = os.path.join(repo_root, r'musicSide_root_data')
 image_data_root = os.path.join(repo_root, r'imageSide_root_data')
 code_root = os.path.join(repo_root, r'creativeAI')
 save_dir_root = os.path.join(repo_root, r'saves_dir')
+music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
+
+if not os.path.exists(music_dataset_path):
+    print(f'Path: {music_dataset_path} does not exists. Exiting')
+    sys.exit(-1)
+
+if not os.path.exists(save_dir_root):
+    os.mkdir(save_dir_root)
+
+music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
+save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
 modelVersions = {
     0: 'Baseline',
@@ -112,25 +123,6 @@ train_model_conf = versionsConfig.get(ConfigurationDict.get('model_version'))
 
 ConfigurationDict.__setitem__('batch_size', train_model_conf['batch_size'])
 ConfigurationDict.__setitem__('n_workers', train_model_conf['n_workers'])
-
-if run_config == 'legion':
-    music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed')
-elif run_config == 'colab':
-    music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
-else:
-    music_dataset_path = os.path.join(music_data_root, 'MusicEmo_dataset_raw_wav/clips_30seconds_preprocessed_BIG')
-    run_config = 'local'
-
-if not os.path.exists(music_dataset_path):
-    print(f'Path: {music_dataset_path} does not exists. Exiting')
-    sys.exit(-1)
-
-if not os.path.exists(save_dir_root):
-    os.mkdir(save_dir_root)
-
-music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
-save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
-
 ConfigurationDict.__setitem__('run_config', run_config)
 ConfigurationDict.__setitem__('repo_root', repo_root)
 ConfigurationDict.__setitem__('code_root', code_root)
@@ -218,7 +210,12 @@ if __name__ == '__main__':
         test_DataLoader = emoMusicPTDataLoader(test_set, batch_size=ConfigurationDict.get('batch_size'), shuffle=False, num_workers=int(ConfigurationDict.get('n_workers')))
         # val_DataLoader = emoMusicPTDataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=WORKERS)
         val_DataLoader = None
-        print(f'\n***** [main.py]: emoMusicPTDataLoader for train/test created *****\n\n')
+        print(f'\n***** [main.py]: emoMusicPTDataLoader for train/test created *****\n\n'
+              f'\ttrain_dl len: {len(train_DataLoader)}'
+              f'\ttest_dl len:{len(test_DataLoader)}'
+              f'-------------'
+              f'\tbatch_size: {ConfigurationDict.get("batch_size")}'
+              f'\tn_workers: {ConfigurationDict.get("n_workers")}\n')
         b.end_timer()
         del b
         '''
@@ -233,7 +230,6 @@ if __name__ == '__main__':
         # %% TorchM5 model
         b = Benchmark("[main.py] TorchM5 model timer")
         b.start_timer()
-
 
         hyperparams = {
             "n_input": 1,  # the real audio channel is calles n_input
@@ -255,7 +251,7 @@ if __name__ == '__main__':
 
         # Defining training Policies
         TrainingSettings = {
-            "batch_size": 4,
+            "batch_size": ConfigurationDict.get('batch_size'),
             "epochs": 1,
             "print_preds_every": 30,
             "learning_rate": 0.01,
