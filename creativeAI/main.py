@@ -104,7 +104,7 @@ versionsConfig = {
     'Baseline': '',
     'v1': {'batch_size': 4, 'n_workers': 2},
     'v2': {'batch_size': 4, 'n_workers': 2},
-    'M5': {'batch_size': 4, 'n_workers': 2}
+    'M5': {'batch_size': 2, 'n_workers': 2}
 }
 
 ConfigurationDict = {
@@ -213,7 +213,7 @@ if __name__ == '__main__':
         print(f'\n***** [main.py]: emoMusicPTDataLoader for train/test created *****\n\n'
               f'\ttrain_dl len: {len(train_DataLoader)}'
               f'\ttest_dl len:{len(test_DataLoader)}'
-              f'-------------'
+              f'\n-------------\n'
               f'\tbatch_size: {ConfigurationDict.get("batch_size")}'
               f'\tn_workers: {ConfigurationDict.get("n_workers")}\n')
         b.end_timer()
@@ -264,10 +264,11 @@ if __name__ == '__main__':
         hyperparams = {
             "n_input": 1,  # the real audio channel is calles n_input
             "n_output": pytorch_dataset.num_classes,
-            "kernel_size": 440,
-            "kernel_shift": 220,
-            "kernel_features_maps": 8 * 8,  # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
+            "kernel_size": 880,
+            "kernel_shift": 440,
+            "kernel_features_maps": 8 * 16,  # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
             "groups": 1,
+            "dropout": True,
         }
 
         model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, hyperparams=hyperparams)

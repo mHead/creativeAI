@@ -54,15 +54,23 @@ class TorchM5(nn.Module):
                                stride=hyperparams.get("kernel_shift"))
         self.bn1 = nn.BatchNorm1d(self.n_channel)
         self.pool1 = nn.MaxPool1d(4)
+        if hyperparams.get("dropout"):
+            self.dropout1 = nn.Dropout(0.25)
         self.conv2 = nn.Conv1d(self.n_channel, self.n_channel, kernel_size=3)
         self.bn2 = nn.BatchNorm1d(self.n_channel)
         self.pool2 = nn.MaxPool1d(4)
+        if hyperparams.get("dropout"):
+            self.dropout2 = nn.Dropout(0.25)
         self.conv3 = nn.Conv1d(self.n_channel, 2 * self.n_channel, kernel_size=3)
         self.bn3 = nn.BatchNorm1d(2 * self.n_channel)
         self.pool3 = nn.MaxPool1d(4)
+        if hyperparams.get("dropout"):
+            self.dropout3 = nn.Dropout(0.25)
         self.conv4 = nn.Conv1d(2 * self.n_channel, 2 * self.n_channel, kernel_size=3)
         self.bn4 = nn.BatchNorm1d(2 * self.n_channel)
         self.pool4 = nn.MaxPool1d(4)
+        if hyperparams.get("dropout"):
+            self.dropout4 = nn.Dropout(0.25)
         if self.name == "TorchM5_music2emoCNN_criterion_version":
             self.flatten = nn.Flatten()
         self.fc1 = nn.Linear(2 * self.n_channel, self.num_classes)
