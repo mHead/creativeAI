@@ -228,32 +228,11 @@ if __name__ == '__main__':
         '''
 
         # %% TorchM5 model
-        b = Benchmark("[main.py] TorchM5 model timer")
-        b.start_timer()
-
-        hyperparams = {
-            "n_input": 1,  # the real audio channel is calles n_input
-            "n_output": pytorch_dataset.num_classes,
-            "kernel_size": 80,
-            "kernel_shift": 16,
-            "kernel_features_maps": 8 * 4,
-            # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
-            "groups": 1,
-        }
-
-        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, hyperparams=hyperparams)
-
-        b.end_timer()
-        del b
-        # %%
-        b = Benchmark("[main.py] runner_timer")
-        b.start_timer()
-
         # Defining training Policies
         TrainingSettings = {
             "batch_size": ConfigurationDict.get('batch_size'),
-            "epochs": 1,
-            "print_preds_every": 30,
+            "epochs": 800,
+            "print_preds_every": 250,
             "learning_rate": 0.01,
             "stopping_rate": 1e-7,
             "weight_decay": 0.0001,
@@ -277,8 +256,27 @@ if __name__ == '__main__':
             "quiet": 0,
             "verbose": 1
         }
-
+        # collect
         bundle = {**TrainingSettings, **TrainingPolicies, **TrainSavingsPolicies}
+
+        b = Benchmark("TorchM5 model timer")
+        b.start_timer()
+        hyperparams = {
+            "n_input": 1,  # the real audio channel is calles n_input
+            "n_output": pytorch_dataset.num_classes,
+            "kernel_size": 440,
+            "kernel_shift": 220,
+            "kernel_features_maps": 8 * 8,  # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
+            "groups": 1,
+        }
+
+        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, hyperparams=hyperparams)
+
+        b.end_timer()
+        del b
+        # %%
+        b = Benchmark("runner_timer")
+        b.start_timer()
 
         runner = Runner(_model=model, _bundle=bundle)
 

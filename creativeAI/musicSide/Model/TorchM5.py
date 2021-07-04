@@ -45,7 +45,7 @@ class TorchM5(nn.Module):
               f'\n\tfilename: {self.ex0_filename}'
               f'\n\tlabel: {self.ex0_label}')
         if not self.emoMusicPTDataset.slice_mode:
-                print(f'\n\tslice_no: False')
+            print(f'\n\tslice_no: False')
         else:
             print(f'\n\tslice_no: {slice_no}')
 

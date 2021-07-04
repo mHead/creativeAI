@@ -283,7 +283,8 @@ class Runner(object):
         plt.show()
 
     def print_prediction(self, current_epoch, song_id, slice_no, filename, label, score):
-        if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
+        #if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
+        if (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
             if not self.model.emoMusicPTDataset.slice_mode:
                 print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id}')
                 _, preds = torch.max(score, 1)
