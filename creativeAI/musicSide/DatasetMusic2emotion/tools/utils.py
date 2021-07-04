@@ -11,7 +11,11 @@ from sklearn.preprocessing import LabelEncoder
 import torch
 import torch.cuda as cuda
 import torch.nn as nn
-
+from scipy.io.wavfile import read
+from scipy.io.wavfile import write
+from scipy import interpolate
+from pydub import AudioSegment
+import gc
 #print(f'****\tmusicSide.DatasetMusic2emotion.tools.utils.py imported\t****\n')
 #print(f'Using garbage collector with thresholds: {gc.get_threshold()}\n')
 
@@ -25,12 +29,9 @@ Ordinary users should not need this, as all of PyTorch’s CUDA methods automati
 
 Does nothing if the CUDA state is already initialized.
 '''
-# some print informations
-#print(f'****\tTorchModel.py imported****\t****\n')
-
-
 runs_on = r'legion'
 save_files = False
+# %% 1. WAV Tools
 
 # some defines
 __SAMPLE_AT = 44100
@@ -43,64 +44,6 @@ __INPUT_500ms = 500
 __INPUT_500ms_SAMPLES = 22050
 __CLIP_LENGTH = __nSLICES * __INPUT_500ms_SAMPLES
 
-
-def module_exists(module_name):
-    try:
-        __import__(module_name)
-    except ImportError:
-        return False
-    else:
-        return True
-
-
-def install_module(module):
-    if runs_on.__eq__('legion'):
-        try:
-            os.system(f'pip install {module} --user')
-        except OSError:
-            print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
-    else:
-        try:
-            os.system(f'pip3 install {module}')
-        except OSError:
-            print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
-
-
-try:
-    if not module_exists('interpolate'):
-        install_module('scipy')
-        from scipy.io.wavfile import read
-        from scipy.io.wavfile import write
-        from scipy import interpolate
-    else:
-        if 'scipy' not in sys.modules:
-            from scipy.io.wavfile import read
-            from scipy.io.wavfile import write
-            from scipy import interpolate
-except ImportError:
-    print(f'{ImportError.__traceback__}')
-
-try:
-    if not module_exists('pydub'):
-        install_module('pydub')
-
-    from pydub import AudioSegment
-except ImportError:
-    print(f'{ImportError.__traceback__}')
-
-try:
-    if not module_exists('gc'):
-        install_module('gc')
-        import gc
-
-    if not module_exists('pprint'):
-        install_module('pprint')
-        import pprint
-except ImportError:
-    print(f'{ImportError.__traceback__}')
-
-
-# %% 1. WAV Tools
 
 def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_deep=False):
     memory_management = True
@@ -252,7 +195,6 @@ def read_preprocessed_wavs(wav_dir):
                                                                                        __INPUT_500ms_SAMPLES)
 
     return trimmed_raw_audio_files, __CLIP_LENGTH, __SAMPLE_AT, __nSLICES, __INPUT_500ms_SAMPLES
-
 
 def clip_audio_files(padded_raw_audio_vector, start_ms, end_ms, sample_rate, verbose=True):
     clipped_raw_audio_files = []
@@ -554,3 +496,25 @@ def int_to_one_hot(y):
         return res
     else:
         return y_one_hot
+
+
+def module_exists(module_name):
+    try:
+        __import__(module_name)
+    except ImportError:
+        return False
+    else:
+        return True
+
+
+def install_module(module):
+    if runs_on.__eq__('legion'):
+        try:
+            os.system(f'pip install {module} --user')
+        except OSError:
+            print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
+    else:
+        try:
+            os.system(f'pip3 install {module}')
+        except OSError:
+            print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
