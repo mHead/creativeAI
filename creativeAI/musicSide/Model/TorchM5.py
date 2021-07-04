@@ -43,8 +43,11 @@ class TorchM5(nn.Module):
               f'\n\t\ttype: {type(self.example_0)}'
               f'\n\tsong_id: {self.ex0_songid}'
               f'\n\tfilename: {self.ex0_filename}'
-              f'\n\tlabel: {self.ex0_label}'
-              f'\n\tslice_no: {slice_no}')
+              f'\n\tlabel: {self.ex0_label}')
+        if not self.emoMusicPTDataset.slice_mode:
+                print(f'\n\tslice_no: False')
+        else:
+            print(f'\n\tslice_no: {slice_no}')
 
         # Network architecture
         self.conv1 = nn.Conv1d(self.n_input, self.n_channel, kernel_size=hyperparams.get("kernel_size"),
