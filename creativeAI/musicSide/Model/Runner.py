@@ -114,7 +114,7 @@ class Runner(object):
             # print first prediction plus every 'print_preds_every'
             # do not print all predictions, but the ones every 50 batches
             if mode == 'train' and batch % 10 == 0:
-                self.print_prediction(current_epoch, song_id, slice_no, filename, dominant_label, score)
+                self.print_prediction(batch, current_epoch, song_id, slice_no, filename, dominant_label, score)
 
             pred = self.get_likely_index(score)
             epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
@@ -165,7 +165,7 @@ class Runner(object):
         train_accuracies = np.zeros(self.settings.get('epochs'))
 
         for epoch in range(self.settings.get('epochs')):
-            print(f'[Runner.run(train_dl, {epoch + 1}, {self.model.emoMusicPTDataset.slice_mode})] called by Runner.train()')
+            print(f'\n\n[Runner.run(train_dl, {epoch + 1}, {self.model.emoMusicPTDataset.slice_mode})] called by Runner.train()\n')
             train_loss, train_acc = self.run(epoch + 1, 'train')
             # Store epoch stats
             train_losses[epoch] = train_loss
@@ -285,15 +285,15 @@ class Runner(object):
 
         plt.show()
 
-    def print_prediction(self, current_epoch, song_id, slice_no, filename, label, score):
+    def print_prediction(self, current_batch, current_epoch, song_id, slice_no, filename, label, score):
         #if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
         if (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
             if not self.model.emoMusicPTDataset.slice_mode:
-                print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id: {song_id}')
+                print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id: {song_id}')
                 _, preds = torch.max(score, 1)
                 print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
             else:
-                print(f'[Runner.run()] Epoch: {current_epoch}\n\tPrediction for song_id+slice_no: {song_id}+{slice_no}')
+                print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id+slice_no: {song_id}+{slice_no}')
                 _, preds = torch.max(score, 1)
                 print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
 
