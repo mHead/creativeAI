@@ -57,6 +57,8 @@ pip install pydub --user
 pip install scipy --user
 pip install torch --user
 pip install torchaudio --user
+pip install torchvision --user
+pip install tensorboard --user
 
 
 echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
