@@ -76,7 +76,7 @@ for arg in argv:
 
 # print(repo_root)
 assert len(repo_root) != 0
-
+print(f'run_config: {run_config}')
 music_data_root = os.path.join(repo_root, r'musicSide_root_data')
 image_data_root = os.path.join(repo_root, r'imageSide_root_data')
 code_root = os.path.join(repo_root, r'creativeAI')
