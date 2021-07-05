@@ -88,6 +88,9 @@ class emoMusicPTDataset(Dataset):
 
         self.print_info()
 
+    def get_save_dir(self):
+        return self._SAVE_DIR_ROOT
+
     def __len__(self):
         return len(self.wav_filenames)     # if slice_mode: 744 x 61 else: 744
 
@@ -365,6 +368,7 @@ class emoMusicPTDataset(Dataset):
         print(" - bits_per_sample:", _metadata.bits_per_sample)
         print(" - encoding:", _metadata.encoding)
         print()
+
 
 
 

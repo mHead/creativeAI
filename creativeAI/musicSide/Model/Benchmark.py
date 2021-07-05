@@ -2,8 +2,7 @@ import time
 
 
 class TimerError(Exception):
-    ''' handle exceptions '''
-
+    """ handle exceptions """
 
 
 class Benchmark:
@@ -14,6 +13,9 @@ class Benchmark:
         self.start = 0
         self.end = 0
         self.elapsed = 0
+
+    def __del__(self):
+        self.end_timer()
 
     def start_timer(self):
         if not self.is_stopped:

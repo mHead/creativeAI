@@ -187,7 +187,7 @@ if __name__ == '__main__':
         b = Benchmark("[main.py] pytorch_dataset_timer")
         b.start_timer()
         # Create the Dataset Object
-        pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict)
+        pytorch_dataset = emoMusicPTDataset(slice_mode=True, env=ConfigurationDict)
         print(f'\n***** [main.py]: emoMusicPT created*****\n')
 
         test_frac = 0.1
@@ -216,7 +216,6 @@ if __name__ == '__main__':
               f'\n-------------\n'
               f'\tbatch_size: {ConfigurationDict.get("batch_size")}'
               f'\tn_workers: {ConfigurationDict.get("n_workers")}\n')
-        b.end_timer()
         del b
         '''
         b = Benchmark("[main.py] pytorch_model_timer")
@@ -261,30 +260,35 @@ if __name__ == '__main__':
 
         b = Benchmark("TorchM5 model timer")
         b.start_timer()
+
         hyperparams = {
+            "__CONFIG__": 3,
             "n_input": 1,  # the real audio channel is calles n_input
             "n_output": pytorch_dataset.num_classes,
-            "kernel_size": 880,
-            "kernel_shift": 440,
+            "kernel_size": 220,
+            "kernel_shift": 110,
             "kernel_features_maps": 8 * 16,  # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
             "groups": 1,
             "dropout": True,
-            "dropout_p": 0.25
+            "dropout_p": 0.25,
+            "slice_mode": pytorch_dataset.slice_mode
         }
 
-        model = TorchM5(dataset=pytorch_dataset, train_dl=train_DataLoader, test_dl=test_DataLoader, hyperparams=hyperparams)
+        model = TorchM5(hyperparams=hyperparams)
 
-        b.end_timer()
+        model.save_dir = pytorch_dataset.get_save_dir()
+        model.example_0, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = train_DataLoader.dataset[0]
+        model.input_shape = model.example_0.shape
+
         del b
         # %%
         b = Benchmark("runner_timer")
         b.start_timer()
 
-        runner = Runner(_model=model, _bundle=bundle)
+        runner = Runner(_model=model, _train_dl=train_DataLoader, _test_dl=test_DataLoader, _bundle=bundle)
 
         exit_code = runner.train()
 
-        b.end_timer()
         del b
 
         if exit_code == runner.SUCCESS:
@@ -293,7 +297,6 @@ if __name__ == '__main__':
             b = Benchmark("[main.py] runner.eval() timer")
             b.start_timer()
             exit_code = runner.eval()
-            b.end_timer()
             del b
 
             if exit_code == runner.SUCCESS:
