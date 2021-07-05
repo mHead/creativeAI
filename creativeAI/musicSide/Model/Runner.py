@@ -49,14 +49,15 @@ class Runner(object):
         self.tensorboard_outs_path = self.set_saves_path(_bundle.get("tensorboard_outs"))
 
         # %%Write the graph to be read on Tensorboard
-        SummaryWriter()
-        self.writer = SummaryWriter(self.tensorboard_outs_path, filename_suffix=self.model.name)
-        example = self.model.example_0
-        if self.model.slice_mode():
-            self.writer.add_graph(self.model, example.reshape(1, 1, 22050))
-        else:
-            self.writer.add_graph(self.model, example.reshape(1, 1, 1345050))
-        self.writer.close()
+        if self.settings.get('run_config') != 'legion':
+            SummaryWriter()
+            self.writer = SummaryWriter(self.tensorboard_outs_path, filename_suffix=self.model.name)
+            example = self.model.example_0
+            if self.model.slice_mode():
+                self.writer.add_graph(self.model, example.reshape(1, 1, 22050))
+            else:
+                self.writer.add_graph(self.model, example.reshape(1, 1, 1345050))
+            self.writer.close()
         # %%
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,
@@ -317,7 +318,7 @@ class Runner(object):
                 _, preds = torch.max(score, 1)
                 print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
             else:
-                print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id | '
+                print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id: '
                       f'{song_id} | slice_no: {slice_no}')
                 _, preds = torch.max(score, 1)
                 print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')

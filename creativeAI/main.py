@@ -231,7 +231,7 @@ if __name__ == '__main__':
         # Defining training Policies
         TrainingSettings = {
             "batch_size": ConfigurationDict.get('batch_size'),
-            "epochs": 1,
+            "epochs": 400,
             "print_preds_every": 250,
             "learning_rate": 0.01,
             "stopping_rate": 1e-7,
@@ -254,7 +254,8 @@ if __name__ == '__main__':
             "tensorboard_outs": 'tb_outputs',
             "monitor": 'val_categorical_accuracy',
             "quiet": 0,
-            "verbose": 1
+            "verbose": 1,
+            "run_config": ConfigurationDict.get('run_config')
         }
         # collect
         bundle = {**TrainingSettings, **TrainingPolicies, **TrainSavingsPolicies}
