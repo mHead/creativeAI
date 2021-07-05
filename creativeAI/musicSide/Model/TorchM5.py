@@ -155,6 +155,8 @@ class TorchM5(nn.Module):
     @save_dir.setter
     def save_dir(self, path):
         self._save_dir = os.path.join(path, self.name)
+        if not os.path.exists(self._save_dir):
+            os.mkdir(self._save_dir)
 
 
     @property
