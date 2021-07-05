@@ -333,7 +333,7 @@ class emoMusicPTDataset(Dataset):
         path_to_save = os.path.join(path_to_save, f'{u.format_timestamp(d)}_emotion_distribution_over_subsets.png')
         plt.savefig(path_to_save)
 
-        plt.show()
+        # plt.show()
 
     def print_info(self):
         print(f'*** [emoMusicPTDataset.py] ***'

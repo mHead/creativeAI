@@ -308,7 +308,7 @@ class Runner(object):
             print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
             sys.exit(self.FAILURE)
 
-        plt.show()
+        # plt.show()
 
     def print_prediction(self, current_batch, current_epoch, song_id, slice_no, filename, label, score):
         # if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
