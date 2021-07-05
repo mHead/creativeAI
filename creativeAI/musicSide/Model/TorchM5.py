@@ -34,8 +34,8 @@ class TorchM5(nn.Module):
         self.drop_out = self.hyperparams.get("dropout")
         self.drop_out_p = self.hyperparams.get("dropout_p")
 
-        self.model_weights_list = []
-        self.conv_layers_list = []
+        self.weights_list = []
+        self.biases = []
 
         # kernel setup
         self.n_channel = self.hyperparams.get("kernel_features_maps")
@@ -90,21 +90,24 @@ class TorchM5(nn.Module):
         x = self.pool1(x)
         if self.drop_out:
             x = self.dropout1(x)
+
         x = self.conv2(x)
         x = F.relu(self.bn2(x))
         x = self.pool2(x)
         if self.drop_out:
             x = self.dropout2(x)
+
         x = self.conv3(x)
         x = F.relu(self.bn3(x))
         x = self.pool3(x)
         if self.drop_out:
             x = self.dropout3(x)
+
         x = self.conv4(x)
         x = F.relu(self.bn4(x))
         x = self.pool4(x)
-        ks = x.shape[-1]
 
+        ks = x.shape[-1]
         if isinstance(ks, torch.Tensor):
             if self.device.type == 'cpu':
                 ks = ks.item()

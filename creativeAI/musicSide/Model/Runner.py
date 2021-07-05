@@ -177,6 +177,8 @@ class Runner(object):
             # Store epoch stats
             train_losses[epoch] = train_loss
             train_accuracies[epoch] = train_acc
+            # Store epoch weights and biases
+            self.store_weights_and_biases(epoch)
 
             print(f'[Runner.train()] Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
                   f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
@@ -220,6 +222,19 @@ class Runner(object):
             return self.SUCCESS
         else:
             return self.FAILURE
+
+    def store_weights_and_biases(self, epoch):
+        model_children = list(self.model.children())
+        epoch_weights = {epoch: []}
+        epoch_biases = {epoch: []}
+
+        for i in range(len(model_children)):
+            if isinstance(model_children[i], torch.nn.Conv1d) or isinstance(model_children[i], torch.nn.BatchNorm1d) or isinstance(model_children[i], torch.nn.Linear):
+                epoch_weights.get(epoch).append(model_children[i].weight)
+                epoch_biases.get(epoch).append(model_children[i].bias)
+
+        self.model.weights_list.append(epoch_weights)
+        self.model.biases.append(epoch_biases)
 
     def plot_scatter_training_stats(self, losses, accuracies, epochs, mode=None):
         n_rows = 1
@@ -303,7 +318,7 @@ class Runner(object):
                 print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
             else:
                 print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id | '
-                      f'slice_no: {song_id} | {slice_no}')
+                      f'{song_id} | slice_no: {slice_no}')
                 _, preds = torch.max(score, 1)
                 print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
 
@@ -323,11 +338,11 @@ class Runner(object):
             "model": self.model.state_dict(),
             "optim": self.optimizer.state_dict(),
             "hyperparams": self.model.hyperparams,
-            'model_weights': self.model.model_weights_list,  # TODO populate list over epochs or just at the end?
-            'conv_layers': self.model.conv_layers_list,  # TODO as well
+            'model_weights': self.model.weights_list,  # TODO populate list over epochs or just at the end?
+            'biases': self.model.biases,
             'runner_settings': self.settings,
             'metadata': {
-                'timestamp': d,
+                'timestamp': u.format_timestamp(d),
                 'model_name': self.model.name,
                 'model_type': model_type,
                 'save_dir': self.model.save_dir,
@@ -366,9 +381,10 @@ class Runner(object):
         model_state_dict = loaded_checkpoint['model']  # load state_dict
         model.load_state_dict(model_state_dict)
         model_weights = loaded_checkpoint['model_weights']  # TODO populate list over epochs or just at the end?
-        conv_layers = loaded_checkpoint['conv_layers']  # TODO as well
-        model.model_weights_list = model_weights
-        model.conv_layers_list = conv_layers
+        biases = loaded_checkpoint['biases']  # TODO as well
+
+        model.weights_list = model_weights
+        model.biases = biases
 
         model.eval()
         print('\nModel Parameters:\n')

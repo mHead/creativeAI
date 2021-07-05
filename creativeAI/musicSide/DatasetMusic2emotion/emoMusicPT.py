@@ -219,9 +219,9 @@ class emoMusicPTDataset(Dataset):
     def stratified_song_level_split(self, test_fraction):
         splitter = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=0)
         if not self.slice_mode:
-            splits = splitter.split(self.wav_filenames, self.labels_song_level)
+            splits = splitter.split(self.wav_filenames, self.labels_song_level[:len(self.wav_filenames)])
         else:
-            splits = splitter.split(self.wav_filenames, self.labels_slice_level)
+            splits = splitter.split(self.wav_filenames, self.labels_slice_level[:len(self.wav_filenames)])
         train_index = []
         test_index = []
         for train_index, test_index in splits:

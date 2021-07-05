@@ -14,9 +14,6 @@ class Benchmark:
         self.end = 0
         self.elapsed = 0
 
-    def __del__(self):
-        self.end_timer()
-
     def start_timer(self):
         if not self.is_stopped:
             self.reset_timer()
