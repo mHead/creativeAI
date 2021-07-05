@@ -112,7 +112,7 @@ class TorchM5(nn.Module):
             if self.device.type == 'cpu':
                 ks = ks.item()
             else:
-                ks = ks[0].item() # stackoverflow try
+                ks = ks.item()  # stackoverflow try ks[0].item() is wrong
 
         x = F.avg_pool1d(x, ks)
 
