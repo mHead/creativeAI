@@ -3,8 +3,8 @@
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=6
 #SBATCH --partition=cuda
-#SBATCH --mem=12GB
-#SBATCH --time=24:00:00
+#SBATCH --mem=6GB
+#SBATCH --time=36:00:00
 #SBATCH --output=mus2emo_%j_out.txt
 #SBATCH --error=mus2emo_%j_err.txt
 
