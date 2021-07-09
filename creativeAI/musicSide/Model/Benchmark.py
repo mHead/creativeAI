@@ -1,5 +1,5 @@
 import time
-
+from contextlib import contextmanager
 
 class TimerError(Exception):
     """ handle exceptions """
@@ -13,6 +13,10 @@ class Benchmark:
         self.start = 0
         self.end = 0
         self.elapsed = 0
+
+    def __enter__(self):
+        print('Enter call')
+
 
     def start_timer(self):
         if not self.is_stopped:

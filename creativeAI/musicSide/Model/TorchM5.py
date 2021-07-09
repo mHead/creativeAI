@@ -1,5 +1,4 @@
 import torch
-import torchaudio
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -112,9 +111,10 @@ class TorchM5(nn.Module):
             if self.device.type == 'cpu':
                 ks = ks.item()
             else:
-                ks = ks.item()  # stackoverflow try ks[0].item() is wrong
+                ks = ks.item() # stackoverflow try ks[0].item() is wrong
+                print(f'ks: {ks}, type: {type(ks)}')
 
-        x = F.avg_pool1d(x, ks)
+        x = F.avg_pool1d(x, kernel_size=ks)
 
         if self.name == 'TochM5_music2emoCNN':
             # do as Documentation

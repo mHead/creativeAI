@@ -51,18 +51,22 @@ code="main.py"
 
 echo "installing modules"
 pip install Tornado --user
-pip install tensorflow --user
-pip install ffmpeg --user
-pip install pydub --user
+pip install numpy==1.21.0
+pip install tensorflow==2.5.0 --user
+pip install ffmpeg==1.4 --user
+pip install pydub==0.25.1 --user
 pip install scipy --user
-pip install torch --user
-pip install torchaudio --user
-pip install torchvision --user
-pip install tensorboard --user
+pip install torch==1.8.0 --user
+pip install torchaudio==0.8.0 --user
+pip install torchvision==0.9.0 --user
+pip install tensorboard==2.5.0 --user
+pip install librosa==0.8.1 --user
+pip install seaborn==0.11.1 --user
+pip install
 
 
 echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
 
 
-python3 ${code} --verbose --legion --repo_root ${repo_root_legion}
+python3 ${code} -v -r ${repo_root_legion} -mel
 #/Users/head/PycharmProjects/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav

@@ -1,4 +1,5 @@
 # TODO: need for safer code
+# basic python imports
 import sys
 import os
 import re
@@ -7,17 +8,24 @@ import pandas as pd
 import datetime
 import matplotlib.pyplot as plt
 import gc
-from sklearn.preprocessing import LabelEncoder
+
+# ml libraries
 import torch
 import torch.cuda as cuda
 import torch.nn as nn
+from scipy.stats import kurtosis
+from scipy.stats import skew
+
+# audio libraries
+import librosa
+import librosa.display
+from pydub import AudioSegment
+from scipy import interpolate
 from scipy.io.wavfile import read
 from scipy.io.wavfile import write
-from scipy import interpolate
-from pydub import AudioSegment
-import gc
-#print(f'****\tmusicSide.DatasetMusic2emotion.tools.utils.py imported\t****\n')
-#print(f'Using garbage collector with thresholds: {gc.get_threshold()}\n')
+
+# print(f'****\tmusicSide.DatasetMusic2emotion.tools.utils.py imported\t****\n')
+# print(f'Using garbage collector with thresholds: {gc.get_threshold()}\n')
 
 
 # cuda.init()
@@ -31,9 +39,8 @@ Does nothing if the CUDA state is already initialized.
 '''
 runs_on = r'legion'
 save_files = False
-# %% 1. WAV Tools
 
-# some defines
+# common defines
 __SAMPLE_AT = 44100
 __START_CLIP = 15000
 __END_CLIP = 45000
@@ -45,6 +52,69 @@ __INPUT_500ms_SAMPLES = 22050
 __CLIP_LENGTH = __nSLICES * __INPUT_500ms_SAMPLES
 
 
+# %% 0.0 MFCC mode
+
+def extract_mfcc_features(y, sr=__SAMPLE_AT, n_fft=__INPUT_500ms_SAMPLES, hop_length=220):
+    features = {
+        'centroid': librosa.feature.spectral_centroid(y, sr=sr, n_fft=n_fft, hop_length=hop_length).ravel(),
+        'flux': librosa.onset.onset_strength(y=y, sr=sr).ravel(),
+        'rmse': librosa.feature.rms(y, frame_length=n_fft, hop_length=hop_length).ravel(),
+        'zcr': librosa.feature.zero_crossing_rate(y, frame_length=n_fft, hop_length=hop_length).ravel(),
+        'contrast': librosa.feature.spectral_contrast(y, sr=sr).ravel(),
+        'bandwidth': librosa.feature.spectral_bandwidth(y, sr=sr, n_fft=n_fft, hop_length=hop_length).ravel(),
+        'flatness': librosa.feature.spectral_flatness(y, n_fft=n_fft, hop_length=hop_length).ravel(),
+        'rolloff': librosa.feature.spectral_rolloff(y, sr=sr, n_fft=n_fft, hop_length=hop_length).ravel()
+    }
+
+    mfcc = librosa.feature.mfcc(y, n_fft=n_fft, hop_length=hop_length, n_mfcc=20)
+    for idx, v_mfcc in enumerate(mfcc):
+        features[f'mfcc_{idx}'] = v_mfcc.ravel()
+
+    def get_mfcc_feature_stats(features):
+        result = {}
+        for k, v, in features.items():
+            result[f'{k}_max'] = np.max(v)
+            result[f'{k}_min'] = np.min(v)
+            result[f'{k}_mean'] = np.mean(v)
+            result[f'{k}_std'] = np.std(v)
+            result[f'{k}_kurtosis'] = kurtosis(v)
+            result[f'{k}_skew'] = skew(v)
+        return result
+
+    dict_agg_features = get_mfcc_feature_stats(features)
+    dict_agg_features['tempo'] = librosa.beat.tempo(y=y, sr=sr, hop_length=hop_length)[0]
+    dict_agg_features['tempo-tracked'], dict_agg_features['beat_frames'] = beat_track_wrap(y, sr)
+    dict_agg_features['beat_times'] = frames_to_time_wrap(dict_agg_features['beat_frames'], sr=sr)
+    print('Estimated tempo: {:.2f} | {:.2f} beats per minute'.format(dict_agg_features['tempo-tracked'],
+                                                                     dict_agg_features['tempo']))
+
+    return dict_agg_features
+
+
+def librosa_load_wrap(filename, sr):
+    return librosa.load(filename, sr=sr)
+
+
+def frames_to_time_wrap(beat_frames, sr):
+    return librosa.frames_to_time(beat_frames, sr=sr)
+
+
+def beat_track_wrap(y, sr=__SAMPLE_AT):
+    return librosa.beat.beat_track(y=y, sr=sr)
+
+
+# %% 0.1 MEL_SPEC
+def extract_mel_spectrogram_librosa(waveform, sr, n_fft=__INPUT_500ms_SAMPLES, hop_length=__INPUT_500ms_SAMPLES + 1):
+    mel_spec = librosa.feature.melspectrogram(y=waveform, sr=sr, n_fft=n_fft, hop_length=hop_length)
+    mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
+
+    librosa.display.specshow(mel_spec, y_axis='mel', x_axis='time')
+    plt.title('Mel Spectrogram')
+    plt.colorbar(format='%+2.0f dB')
+    # plt.show()
+    return mel_spec
+
+# %% 1. WAV Tools
 def read_wavs(wav_dir, plot_wav=False, preprocess=False, verbose=True, verbose_deep=False):
     memory_management = True
     remove_hidden_files(wav_dir)
@@ -196,6 +266,7 @@ def read_preprocessed_wavs(wav_dir):
 
     return trimmed_raw_audio_files, __CLIP_LENGTH, __SAMPLE_AT, __nSLICES, __INPUT_500ms_SAMPLES
 
+
 def clip_audio_files(padded_raw_audio_vector, start_ms, end_ms, sample_rate, verbose=True):
     clipped_raw_audio_files = []
     clipped_raw_audio_lengths = []
@@ -341,7 +412,7 @@ def extract_labels(labels_csv_path):
     single_label_array = np.asarray(single_label_array)
     # print(f'{labels.shape} : {labels}')
     assert len(single_label_array) == len(song_ids) == labels.shape[0]
-    labels = labels.reshape(labels.shape[0]*labels.shape[1])
+    labels = labels.reshape(labels.shape[0] * labels.shape[1])
     return labels, song_ids, single_label_array
 
 
@@ -359,7 +430,6 @@ def save_preprocessed_audios(audio_raw_files, wav_filenames, directory_to_save):
 # %% 2. Utilities
 
 def set_device(model, device):
-
     if type(device) is int:
         if device > 0:
             torch.cuda.set_device(device - 1)
@@ -448,7 +518,7 @@ def remove_hidden_files(path_to_wav_files):
     print(f"clips_45 seconds len: {len(filenames)}\nContent:\n{filenames}")
 
 
-def getCSV_info(path_to_csv):
+def displayCSV_info(path_to_csv):
     dataframe = pd.read_csv(path_to_csv)
     print(f'\t>>>> tools.utils module: getCSV_info({path_to_csv})\n')
     print(f'\t\tDataFrame.shape: {dataframe.shape}')
@@ -472,7 +542,7 @@ def format_timestamp(current_timestamp: datetime):
 
 def to_one_hot(y):
     y_one_hot = []
-    for i in range(len(y)):
+    for i in y:
         one_hot = np.zeros(__nCLASSES)
         for label in range(__nCLASSES):
             if label == y[i][0]:
@@ -481,6 +551,7 @@ def to_one_hot(y):
 
     y_one_hot = np.array(y_one_hot).reshape(y.shape[0] * y.shape[1], __nCLASSES)
     return y_one_hot
+
 
 def int_to_one_hot(y):
     pt = True
@@ -498,6 +569,7 @@ def int_to_one_hot(y):
         return y_one_hot
 
 
+'''
 def module_exists(module_name):
     try:
         __import__(module_name)
@@ -518,3 +590,4 @@ def install_module(module):
             os.system(f'pip3 install {module}')
         except OSError:
             print(f'Ops: Errno {OSError.errno}\nTraceback: \n{OSError.__traceback__}')
+'''

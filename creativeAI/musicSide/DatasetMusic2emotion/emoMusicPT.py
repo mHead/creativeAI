@@ -48,7 +48,8 @@ class emoMusicPTDataset(Dataset):
                 returns the whole song as a torch.Tensor([1, 1345050])
 
     """
-    def __init__(self, slice_mode=False, env=None):
+
+    def __init__(self, slice_mode=False, env=None, mfcc=False, melspec=False):
         super().__init__()
 
         if env is not None:
@@ -64,7 +65,26 @@ class emoMusicPTDataset(Dataset):
             print(f'Configuration Environment failed!')
             sys.exit(-1)
 
-        self.name = 'emoMusicPTDataset'
+        self.is_mfcc_mode = False
+        self.is_mel_spec_mode = False
+        self.is_raw_audio_mode = False
+
+        if melspec and not mfcc:
+            self.name = 'emoMusicPTDataset - MelSpectrogram mode'
+            self.is_mel_spec_mode = True
+            self.mel_transformation = torchaudio.transforms.MelSpectrogram(
+                sample_rate=_SAMPLE_RATE,
+                n_fft=2048,
+                hop_length=1024,
+                n_mels=256
+            )
+        elif mfcc and not melspec:
+            self.name = 'emoMusicPTDataset - MFCC mode'
+            self.is_mfcc_mode = True
+        elif not mfcc and not melspec:
+            self.name = 'emoMusicPTDataset - raw audio'
+            self.is_raw_audio_mode = True
+
         self.slice_mode = slice_mode
         self.num_classes = _N_CLASSES
 
@@ -82,8 +102,8 @@ class emoMusicPTDataset(Dataset):
             self.wav_filenames = self.wav_filenames_sorted
 
         del wav_filenames
-        #self.labels_song_level = self.single_label_per_song_frame.loc[:, 'emotion_label']
-        #self.labels_slice_level = self.song_id_emotions_labels_frame.loc[1:, self.song_id_emotions_labels_frame.columns != 'song_id']
+        # self.labels_song_level = self.single_label_per_song_frame.loc[:, 'emotion_label']
+        # self.labels_slice_level = self.song_id_emotions_labels_frame.loc[1:, self.song_id_emotions_labels_frame.columns != 'song_id']
         self.labels_slice_level, self.song_ids, self.labels_song_level = u.extract_labels(self._SONGID_EMOTIONS_CSV)
 
         self.print_info()
@@ -92,7 +112,7 @@ class emoMusicPTDataset(Dataset):
         return self._SAVE_DIR_ROOT
 
     def __len__(self):
-        return len(self.wav_filenames)     # if slice_mode: 744 x 61 else: 744
+        return len(self.wav_filenames)  # if slice_mode: 744 x 61 else: 744
 
     def __getitem__(self, n):
         """
@@ -145,7 +165,7 @@ class emoMusicPTDataset(Dataset):
             end_offset = start_offset + _SLICE_SIZE
 
             # now read audio associated
-            filename = str(song_id)+'.wav'
+            filename = str(song_id) + '.wav'
             if filename in self.wav_filenames_sorted:
                 filename_path = os.path.join(self._AUDIO_PATH, filename)
             else:
@@ -176,21 +196,29 @@ class emoMusicPTDataset(Dataset):
 
             del waveform, waveform_array, wave_trimmed, _waveform, filename_path, start_offset, end_offset
             # emotion_one_hot = int_to_one_hot(emotion_label)
-            return _wav_slice, song_id, filename, slice_label, slice_no
+            if self.is_mfcc_mode:
+                # TODO transform and
+                return _wav_slice, song_id, filename, slice_label, slice_no
+            elif self.is_mel_spec_mode:
+                # TODO transform and
+                return _wav_slice, song_id, filename, slice_label, slice_no
+            else:
+                return _wav_slice, song_id, filename, slice_label, slice_no
 
         else:
             assert self.__len__() > n >= 0
             row_id = n
-            #song_id = self.single_label_per_song_frame.iloc[row_id, 0]
-            #emotion_label = self.single_label_per_song_frame.iloc[row_id, 1]
-
+            # song_id = self.single_label_per_song_frame.iloc[row_id, 0]
+            # emotion_label = self.single_label_per_song_frame.iloc[row_id, 1]
+            waveform = None
             song_id = self.wav_filenames[n].split('.')[0]
             filename = self.wav_filenames[n]
             emotion_label = self.labels_song_level[n]
 
             if verbose:
-                print(f'type song_id {type(song_id)} : {song_id} | '
-                      f'type emotion_label : {type(emotion_label)} : {emotion_label}')
+                print(f'\n\ttype song_id {type(song_id)} : {song_id}'
+                      f'\n\ttype emotion_label : {type(emotion_label)} : {emotion_label}')
+
             # now read audio associated
             # filename = str(song_id) + '.wav'
             if len(filename) > 0:
@@ -200,21 +228,45 @@ class emoMusicPTDataset(Dataset):
                 sys.exit(-1)
 
             if os.path.exists(filename_path):
-                metadata = torchaudio.info(filename_path)
-                if verbose:
-                    self.print_metadata(_metadata=metadata, src=filename_path)
 
-                waveform, sample_rate = torchaudio.load(filename_path)
-                assert sample_rate == _SAMPLE_RATE
-                if verbose:
-                    print(f'torchaudio.load SAMPLE EXTRACTION: type of waveform: {type(waveform)} {waveform.shape}')
+                # 1. raw audio mode
+                if self.is_raw_audio_mode:
+                    metadata = torchaudio.info(filename_path)
+                    if verbose:
+                        self.print_metadata(_metadata=metadata, src=filename_path)
+                    waveform, sample_rate = torchaudio.load(filename_path)
+                    assert sample_rate == _SAMPLE_RATE
+                    if verbose: print(
+                        f'torchaudio.load SAMPLE EXTRACTION: type of waveform: {type(waveform)} {waveform.shape}')
+                    return waveform, song_id, filename, emotion_label, self.slice_mode
+
+                # 2. mfcc_mode
+                elif self.is_mfcc_mode:
+                    waveform, sample_rate = u.librosa_load_wrap(filename_path, sr=_SAMPLE_RATE)
+                    assert sample_rate == _SAMPLE_RATE
+                    if verbose:
+                        print(f'librosa.load SAMPLE EXTRACTION: type of waveform: {type(waveform)} {waveform.shape}')
+                    mfcc_features_dict = u.extract_mfcc_features(waveform, n_fft=_SLICE_SIZE, hop_length=220)
+                    #  and return features
+                    return mfcc_features_dict, song_id, filename, emotion_label, self.slice_mode
+
+                # 3. mel_spec_mode
+                elif self.is_mel_spec_mode:
+                    waveform, sample_rate = torchaudio.load(filename_path)
+                    assert sample_rate == _SAMPLE_RATE
+                    # mel_spec_dict = u.extract_mel_spectrogram_librosa(waveform, sr=sample_rate, n_fft=_SLICE_SIZE, hop_length=_SLICE_SIZE+1)
+                    # mel_spec_dict['waveform'] = waveform
+
+                    mel_spec = self.mel_transformation(waveform)
+                    return mel_spec, song_id, filename, emotion_label, self.slice_mode
+
+                else:
+                    print(f'Wrong Dataset Mode among raw_audio, mfcc, mel_spec')
+                    sys.exit(-1)
+
             else:
                 print(f'The file at {filename_path} does not exist')
-
-            del filename_path
-
-            # emotion_one_hot = int_to_one_hot(emotion_label)
-            return waveform, song_id, filename, emotion_label, 0
+                sys.exit(-1)
 
     def stratified_song_level_split(self, test_fraction):
         splitter = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=0)
@@ -225,10 +277,11 @@ class emoMusicPTDataset(Dataset):
         train_index = []
         test_index = []
         for train_index, test_index in splits:
-            print(f'[emoMusicPTDataset.py] TRAIN INDEX: {train_index} type: {type(train_index)} shape: {train_index.shape}')
+            print(
+                f'[emoMusicPTDataset.py] TRAIN INDEX: {train_index} type: {type(train_index)} shape: {train_index.shape}')
             print(f'[emoMusicPTDataset.py] TEST INDEX: {test_index} type: {type(test_index)} shape: {test_index.shape}')
-        #train_index.sort()
-        #test_index.sort()
+        # train_index.sort()
+        # test_index.sort()
         print(f'\n[emoMusicPTDataset.py] type train_indexes {type(train_index)}\ntype test_indexes {type(test_index)}')
         return train_index, test_index
 
@@ -310,7 +363,8 @@ class emoMusicPTDataset(Dataset):
                 ax.set_ylabel('Samples (%)')
                 ax.set_title(f'Test')
             else:
-                ax.plot(emotion_axes, test_emotion_percentiles, SubsetsColors.get('val_set'), label="Emotion distribution over validation set")
+                ax.plot(emotion_axes, test_emotion_percentiles, SubsetsColors.get('val_set'),
+                        label="Emotion distribution over validation set")
                 ax.set_title(f'Test')
                 ax.set_xlabel('epochs')
                 ax.set_ylabel('Loss value')
@@ -343,6 +397,10 @@ class emoMusicPTDataset(Dataset):
               f'\n\tmusic data root: {self._MUSIC_DATA_ROOT}'
               f'\n\tslice_mode: {self.slice_mode}'
               f'\n\t--------------------'
+              f'\n\tmfcc mode: {self.is_mfcc_mode}'
+              f'\n\tmelspec mode: {self.is_mel_spec_mode}'
+              f'\n\traw audio mode: {self.is_raw_audio_mode}'
+              f'\n\t--------------------'
               f'\n\tLabels song level len: {len(self.labels_song_level)}'
               f'\n\tLabels slice level len: {len(self.labels_slice_level)}'
               f'\n\tAudio samples len: {self.__len__()}')
@@ -370,16 +428,6 @@ class emoMusicPTDataset(Dataset):
         print()
 
 
-
-
-
-
-
-
-
-
-
-
 # %% emoMusicPTSubset
 class emoMusicPTSubset(Subset):
     """
@@ -388,12 +436,14 @@ class emoMusicPTSubset(Subset):
     :param dataset (Dataset) the whole dataset
     :indices(sequence) indices in the whole set selected for subset
     """
+
     def __init__(self, dataset, indices):
         super().__init__(dataset, indices)
         self.len = len(indices)
 
     def __len__(self):
         return self.len
+
 
 # %%
 
@@ -405,8 +455,11 @@ class emoMusicPTDataLoader(DataLoader):
     """
     Extends torch.utils.data.DataLoader. Combines a dataset and a sampler and provides an iterable over the given dataset
     """
-    def __init__(self, dataset: emoMusicPTSubset, batch_size=1, shuffle=False, collate_fn=None, num_workers=1, pin_memory=False):
-        super().__init__(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers, pin_memory=pin_memory)
+
+    def __init__(self, dataset: emoMusicPTSubset, batch_size=1, shuffle=False, collate_fn=None, num_workers=1,
+                 pin_memory=False):
+        super().__init__(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn,
+                         num_workers=num_workers, pin_memory=pin_memory)
         '''   
         :param dataset:(torch.data.utils.Dataset) a map-style [implements __getitem__() and __len__()] or iterable-style
         

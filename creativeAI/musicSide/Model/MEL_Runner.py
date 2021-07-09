@@ -15,8 +15,6 @@ import matplotlib.pyplot as plt
 from .Benchmark import Benchmark
 from ..DatasetMusic2emotion.tools import utils as u
 from ..DatasetMusic2emotion.emoMusicPT import emoMusicPTDataLoader
-from ..Model.TorchM5 import TorchM5
-from ..Model.MFCC_baseline import MFCC_baseline
 from ..Model.MEL_baseline import MEL_baseline
 
 PlotColors = {
@@ -29,24 +27,26 @@ PlotColors = {
 }
 
 
-class Runner(object):
+class MEL_Runner(object):
     """
     This is the class which handle the model lifecycle
     :param _model:
     :param _bundle dict containing 3 dictionaries: TrainingSetting, TrainingPolicies, TrainSavingsPolicies
     """
 
-    def __init__(self, _model: TorchM5, _train_dl: emoMusicPTDataLoader, _test_dl: emoMusicPTDataLoader, _bundle, task):
+    def __init__(self, _model: MEL_baseline, _train_dl: emoMusicPTDataLoader, _test_dl: emoMusicPTDataLoader, _bundle, task):
         self.SUCCESS = 0
         self.FAILURE = -1
         self.TASK = task
 
-        self.model = _model
-        self.device = self.model.device
+        self.model_wrapper = _model         # all info about this model configuration
+        self.model = self.model_wrapper.model # resnet18
+        self.device = self.model_wrapper.device
 
         self.settings = _bundle
         self.train_dl = _train_dl
         self.test_dl = _test_dl
+
         self.learning_rate = self.settings.get('learning_rate')
         self.stopping_rate = self.settings.get('stopping_rate')
         # Save paths
@@ -54,17 +54,6 @@ class Runner(object):
         self.plots_save_path = self.set_saves_path(_bundle.get("plots_save_dir"))
         self.tensorboard_outs_path = self.set_saves_path(_bundle.get("tensorboard_outs"))
 
-        # %%Write the graph to be read on Tensorboard
-        if self.settings.get('run_config') != 'legion' and isinstance(self.model, TorchM5):
-            SummaryWriter()
-            self.writer = SummaryWriter(self.tensorboard_outs_path, filename_suffix=self.model.name)
-            example = self.model.example_0
-            if self.model.slice_mode():
-                self.writer.add_graph(self.model, example.reshape(1, 1, 22050))
-            else:
-                self.writer.add_graph(self.model, example.reshape(1, 1, 1345050))
-            self.writer.close()
-        # %%
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,
                                         weight_decay=self.settings.get('weight_decay'))
@@ -127,12 +116,8 @@ class Runner(object):
 
             # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
             # compute outputs
-            if self.model.name == 'TorchM5_music2emoCNN':
-                output = self.model(song_data)
-                loss = F.nll_loss(output.squeeze(), dominant_label)
-            else:
-                score, flatten = self.model(song_data)
-                loss = self.criterion(score, dominant_label)
+            score = self.model(song_data)
+            loss = self.criterion(score, dominant_label)
 
             # print first prediction plus every 'print_preds_every'
             # do not print all predictions, but the ones every 50 batches
@@ -185,10 +170,9 @@ class Runner(object):
         train_done = False
 
         t = Benchmark("[Runner] train call")
-        print(f'Starting training loop of {self.model.name} for {self.settings.get("epochs")} epochs')
+        print(f'Starting training loop of {self.model_wrapper.name} for {self.settings.get("epochs")} epochs')
         print(f'\n\t- The model has {self.count_parameters(self.model)} parameters')
-        print(f'\n\t- Slice mode is turned on: {self.model.slice_mode()}')
-        print(f'\n\t- Dropout: {self.model.drop_out}\n')
+        print(f'\n\t- Dropout: {self.model_wrapper.drop_out}\n')
         t.start_timer()
 
         train_losses = np.zeros(self.settings.get('epochs'))
@@ -202,7 +186,7 @@ class Runner(object):
             train_accuracies[epoch] = train_acc
 
             # Store epoch weights and biases
-            self.store_weights_and_biases(epoch)
+            # self.store_weights_and_biases(epoch)
 
             print(f'[Runner.train()] Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
                   f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
@@ -267,16 +251,12 @@ class Runner(object):
             ts = datetime.datetime.now()
 
             plt.savefig(os.path.join(self.plots_save_path,
-                         f'{self.model.name}_{self.model.hyperparams["__CONFIG__"]}'
-                         f'_kfm={self.model.kernel_features_maps}'
-                         f'_ksz={self.model.kernel_size}'
-                         f'_ksf={self.model.kernel_shift}'
-                         f'_sm={self.model.slice_mode()}'
+                         f'{self.model_wrapper.name}'
                          f'_bs={self.settings.get("batch_size")}'
                          f'_ep={self.settings.get("epochs")}'
-                         f"_{u.format_timestamp(ts)}_confusion_matrix.png"))
+                         f'_{u.format_timestamp(ts)}_confusion_matrix.png'))
 
-            plt.show()
+            #plt.show()
             print(classification_report(gt_list_flattened, preds_list_flattened))
 
             print(f'[Runner.eval()]Epoch: 1/1\n'
@@ -347,26 +327,17 @@ class Runner(object):
             d = datetime.datetime.now()
 
             plt.savefig(os.path.join(self.plots_save_path,
-                                     f'{self.model.name}_{self.model.hyperparams["__CONFIG__"]}'
-                                     f'_kfm={self.model.kernel_features_maps}'
-                                     f'_ksz={self.model.kernel_size}'
-                                     f'_ksf={self.model.kernel_shift}'
-                                     f'_sm={self.model.slice_mode()}'
+                                     f'{self.model_wrapper.name}'
                                      f'_bs={self.settings.get("batch_size")}'
                                      f'_ep={self.settings.get("epochs")}'
-                                     f"_{u.format_timestamp(d)}_train_curves.png"))
+                                     f'_{u.format_timestamp(d)}_train_curves.png'))
         elif mode == 'eval':
             print(f'Saving..... Test Curves\tto {self.plots_save_path + "_timestamp_test_curve.png"}\n')
             d = datetime.datetime.now()
-            plt.savefig(os.path.join(self.plots_save_path, f'{self.model.name}'
-                                                           f'_{self.model.hyperparams["__CONFIG__"]}'
-                                                           f'_kfm={self.model.kernel_features_maps}'
-                                                           f'_ksz={self.model.kernel_size}'
-                                                           f'_ksf={self.model.kernel_shift}'
-                                                           f'_sm={self.model.slice_mode()}'
+            plt.savefig(os.path.join(self.plots_save_path, f'{self.model_wrapper.name}'
                                                            f'_bs={self.settings.get("batch_size")}'
                                                            f'_ep={self.settings.get("epochs")}'
-                                                           f"_{u.format_timestamp(d)}_test_curves.png"))
+                                                           f'_{u.format_timestamp(d)}_test_curves.png'))
         else:
             print(f'[Runner.plot_scatter_training_stats() mode error: {mode}]')
             sys.exit(self.FAILURE)
@@ -374,17 +345,11 @@ class Runner(object):
         # plt.show()
 
     def print_prediction(self, current_batch, current_epoch, song_id, slice_no, filename, label, score):
-        # if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
-        if (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
-            if not self.model.slice_mode():
-                print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id: {song_id}')
-                _, preds = torch.max(score, 1)
-                print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
-            else:
-                print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id: '
-                      f'{song_id} | slice_no: {slice_no}')
-                _, preds = torch.max(score, 1)
-                print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
+        if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
+            print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id: {song_id}')
+            _, preds = torch.max(score, 1)
+            print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
+
 
     def save_model(self, epoch, early_stop=False):
         d = datetime.datetime.now()
@@ -401,28 +366,22 @@ class Runner(object):
             "epoch": epoch,
             "model": self.model.state_dict(),
             "optim": self.optimizer.state_dict(),
-            "hyperparams": self.model.hyperparams,
-            'model_weights': self.model.weights_list,  # TODO populate list over epochs or just at the end?
-            'biases': self.model.biases,
+            "hyperparams": self.model_wrapper.hyperparams,
             'runner_settings': self.settings,
             'metadata': {
                 'timestamp': u.format_timestamp(d),
-                'model_name': self.model.name,
+                'model_name': self.model_wrapper.name,
                 'model_type': model_type,
-                'save_dir': self.model.save_dir,
-                'ex0': self.model.ex0,
-                'ex0_filename': self.model.ex0_fn,
-                'ex0_songid': self.model.ex0_sid,
-                'ex0_slice_no': self.model.ex0_sn,
-                'ex0_label': self.model.ex0_lbl
+                'save_dir': self.model_wrapper.save_dir,
+                'ex0': self.model_wrapper.ex0,
+                'ex0_filename': self.model_wrapper.ex0_fn,
+                'ex0_songid': self.model_wrapper.ex0_sid,
+                'ex0_slice_no': self.model_wrapper.ex0_sn,
+                'ex0_label': self.model_wrapper.ex0_lbl
             }
         }
 
-        # remember: n_channel = kernel features maps
-        path = os.path.join(path, f'{self.model.name}_{self.model.hyperparams["__CONFIG__"]}_kfm={self.model.n_channel}'
-                                  f'_ksz={self.model.kernel_size}'
-                                  f'_ksf={self.model.kernel_shift}'
-                                  f'_sm={self.model.slice_mode()}'
+        path = os.path.join(path, f'{self.model_wrapper.name}'
                                   f'_bs={self.settings.get("batch_size")}'
                                   f'_ep={self.settings.get("epochs")}'
                                   f'_ts={u.format_timestamp(d)}_{model_type}.pth')
@@ -430,13 +389,13 @@ class Runner(object):
         torch.save(checkpoint, path)
 
     def set_saves_path(self, path):
-        _path = os.path.join(self.model.save_dir, path)
+        _path = os.path.join(self.model_wrapper.save_dir, path)
 
         if not os.path.exists(_path):
             os.mkdir(_path)
 
         return _path
-
+"""
     def load_model(self, path):
         loaded_checkpoint = torch.load(path)  # Load the dictionary
 
@@ -468,3 +427,4 @@ class Runner(object):
         # print(optimizer.state_dict())
 
         return model, optim, runner_settings, loaded_checkpoint['metadata']
+"""

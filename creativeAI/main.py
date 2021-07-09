@@ -1,5 +1,9 @@
 import os
 import sys
+import argparse
+import torch
+import torchaudio
+import torch.cuda as cuda
 # utils
 from musicSide.DatasetMusic2emotion.tools import va2emotion as va2emo
 from musicSide.DatasetMusic2emotion.tools import utils as u
@@ -10,13 +14,15 @@ from musicSide.DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusi
 from musicSide.Model.CNN_biGRU import CNN_BiGRU
 from musicSide.Model.TorchModel import TorchModel
 from musicSide.Model.TorchM5 import TorchM5
+from musicSide.Model.MFCC_baseline import MFCC_baseline
+from musicSide.Model.MEL_baseline import MEL_baseline
 from musicSide.Model.Runner import Runner
+from musicSide.Model.MEL_Runner import MEL_Runner
 from musicSide.Model.Benchmark import Benchmark
-import torch
-import torch.cuda as cuda
 
-verbose = False
-if verbose:
+
+which_torch = False
+if which_torch:
     print(f'Using torch version: {torch.__version__}')
 
     if cuda.is_available():
@@ -25,58 +31,60 @@ if verbose:
     else:
         print(f'\t- GPUs available: {cuda.device_count()}')
         print(f'\t- Cuda is NOT available\n')
-# %% Using ArgumentParser
-#import argparse
 
-#parser = argparse.ArgumentParser(description='main arguments')
-#parser.add_argument('-v', '--verbose', nargs='?', default=False, help='Run the program in verbose mode')
 
-#parser.add_argument('-tf', '--tensorflow', dest='Tensorflow', type=str, help='Run the program with Tensorflow backend and Keras frontend')
-#parser.add_argument('-pt', '--pytorch', dest='PyTorch', type=str, help='Run the program with PyTorch')
+def get_conf(_repo_root):
+    _run_config = None
+    if repo_root.startswith('/Users/head'):
+        _run_config = 'local'
+    elif repo_root.startswith('/home/mtesta'):
+        _run_config = 'legion'
+    elif repo_root.startswith('/content'):
+        _run_config = 'colab'
+    return _run_config
 
-#parser.add_argument('-r', '--repo_root', dest='repo_root',  type=str, help='It must be followed by the repo root path')
 
-#args = parser.parse_args()
-#print(args)
-# %%
-# print(sys.argv)
-argv = sys.argv[1:]
-# print(f'[main.py] argv: {argv} type: {type(argv)}')
-
-repo_root = r''
-verbose = True
-generate_csv = False
-pick_repo = False
-run_config = ''
-save_csv_path = r''
 # main framework switch config
 keras_ = False
 pytorch_ = True
 
-for arg in argv:
-    if pick_repo:
-        repo_root = arg
-    if generate_csv:
-        save_csv_path = arg
+parser = argparse.ArgumentParser(description='creativeAI/main arguments Parser')
 
-    if arg.__eq__("--verbose"):
-        verbose = True
+group0 = parser.add_mutually_exclusive_group()
+group0.add_argument('-v', '--verbose', action='store_true', help='Run the program in verbose mode')
+group0.add_argument('-q', '--quiet', action='store_true', help='Run the program in quiet mode')
+parser.add_argument('-r', '--repo_root', dest='repo_root', type=str, help='It must be followed by the repo root path')
+parser.add_argument('-csv', '--generatecsv', dest='save_csv_to_path', type=str, required=False,
+                    help='If you want to apply the va2emo map')
 
-    if arg.__eq__("--repo_root"):
-        pick_repo = True
-    if arg.__eq__("--generate_csv"):
-        generate_csv = True
+group1 = parser.add_mutually_exclusive_group()
+group1.add_argument('-raw', '--raw_audio', action='store_true', help='Raw-audio task')
+group1.add_argument('-mfcc', '--mfcc_coeff', action='store_true', help='MFCC task')
+group1.add_argument('-mel', '--mel_spec', action='store_true', help='Mel_spec task')
 
-    if arg.__eq__("--legion"):
-        run_config = 'legion'
-    elif arg.__eq__("--colab"):
-        run_config = 'colab'
-    else:
-        run_config = 'local'
+args = parser.parse_args()
 
-# print(repo_root)
-assert len(repo_root) != 0
-print(f'run_config: {run_config}')
+# print('args:', args)
+repo_root = args.repo_root
+verbose = args.verbose
+run_config = get_conf(repo_root)
+save_csv_path = args.save_csv_to_path
+
+TASK = None
+if args.raw_audio:
+    TASK = 'raw'
+elif args.mfcc_coeff:
+    TASK = 'mfcc'
+elif args.mel_spec:
+    TASK = 'mel'
+else:
+    print('No Task selected. Use -raw || -mfcc || -mel')
+    sys.exit(-1)
+
+assert run_config is not None
+# print(f'\nThe package will be executed on ** {run_config} ** environment configuration\n')
+
+# Configure paths
 music_data_root = os.path.join(repo_root, r'musicSide_root_data')
 image_data_root = os.path.join(repo_root, r'imageSide_root_data')
 code_root = os.path.join(repo_root, r'creativeAI')
@@ -97,14 +105,16 @@ modelVersions = {
     0: 'Baseline',
     1: 'v1',
     2: 'v2',
-    3: 'M5'
+    3: 'M5',
+    4: 'MEL_baseline'
 }
 
 versionsConfig = {
     'Baseline': '',
     'v1': {'batch_size': 4, 'n_workers': 2},
     'v2': {'batch_size': 4, 'n_workers': 2},
-    'M5': {'batch_size': 2, 'n_workers': 2}
+    'M5': {'batch_size': 2, 'n_workers': 2},
+    'MEL_baseline': {'batch_size': 16, 'n_workers': 2}
 }
 
 ConfigurationDict = {
@@ -115,7 +125,7 @@ ConfigurationDict = {
     'dataset_root': '',
     'labels_root': '',
     'save_dir_root': '',
-    'model_version': modelVersions.get(3),
+    'model_version': modelVersions.get(4),
     'batch_size': '',
     'n_workers': ''
 }
@@ -132,72 +142,31 @@ ConfigurationDict.__setitem__('labels_root', music_labels_csv_root)
 ConfigurationDict.__setitem__('save_dir_root', save_dir_root)
 
 
-if __name__ == '__main__':
+# %% PyTorch Main
+def pytorch_main():
 
-    if verbose:
-        print(f'\n\n\nStarting main with: {music_data_root} as the root for music data\n'
-              f'{music_dataset_path} as the path of the raw audio data'
-              f'{image_data_root} as the root for image data\n'
-              f'{code_root} as the root for code\n\n\n')
-
-    if verbose:
-        print(f'Checking existence of {music_labels_csv_root}'
-              f'If exists check if empty, otherwise create the folder and generate the csv')
-
-    # %% Create music-emotions labels csv from arousal and valence csv
-    if generate_csv:
-        if not os.path.exists(music_labels_csv_root):
-            os.mkdir(music_labels_csv_root)
-            if verbose:
-                print(f'The path did not existed, starting csv generation and save at {save_music_emo_csv_path}')
-
-            va2emo.generateMusicEmo_csv(save_music_emo_csv_path, music_data_root)
-        else:
-            if not os.listdir(music_labels_csv_root):  # directory is empty
-                if verbose:
-                    print(
-                        f'The path exists but is empty, starting csv generation and save at {save_music_emo_csv_path}')
-
-                va2emo.generateMusicEmo_csv(save_music_emo_csv_path, music_data_root)
-            else:
-                # directory is not empty, file exist
-                print(f'\n\n>>The file {save_music_emo_csv_path} already exists\n\n')
-                u.getCSV_info(save_music_emo_csv_path)
-    # %%
-
-    # %% Keras Main
-    if keras_:
-        b = Benchmark("keras_dataset_timer")
-        b.start_timer()
-        music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9, run_config=run_config, preprocess=False)
-        print(f'Hey I am: {music2emotion_Dataset}')
-        b.end_timer()
-
-        b = Benchmark("keras_model_timer")
-        b.start_timer()
-        music2emotion_Model = CNN_BiGRU(music2emotion_Dataset, save_dir=save_dir_root, do_train=True, do_test=False,
-                                        load_model=False, load_model_path=(None, None))
-
-        b.end_timer()
-    # %%
-
-    # %% PyTorch Main
     if pytorch_:
+        # Create the Dataset Object, TASK variable will decide how __getitem__ works
+        pytorch_dataset = None
+        if TASK == 'raw':
+            pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict)
+        elif TASK == 'mfcc':
+            pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict, mfcc=True)
+        elif TASK == 'mel':
+            pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict, melspec=True)
 
-        b = Benchmark("[main.py] pytorch_dataset_timer")
-        b.start_timer()
-        # Create the Dataset Object
-        pytorch_dataset = emoMusicPTDataset(slice_mode=True, env=ConfigurationDict)
-        print(f'\n***** [main.py]: emoMusicPT created*****\n')
+        print(f'\n***** [main.py]: emoMusicPT created for the task: {TASK} *****\n')
 
-        test_frac = 0.1
+        test_frac = 0.3
         train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
 
         # Plot splits
         if not pytorch_dataset.slice_mode:
-            pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_song_level, train_indexes, test_indexes, val_indexes=None)
+            pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_song_level, train_indexes, test_indexes,
+                                                      val_indexes=None)
         else:
-            pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_slice_level, train_indexes, test_indexes, val_indexes=None)
+            pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_slice_level, train_indexes, test_indexes,
+                                                      val_indexes=None)
         # train_indexes, val_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
 
         # Defines Dataloaders
@@ -206,8 +175,10 @@ if __name__ == '__main__':
         # val_set = emoMusicPTSubset(pytorch_dataset, val_indexes)
         print(f'\n***** [main.py]: emoMusicPTSubset for train/test created *****\n\n')
 
-        train_DataLoader = emoMusicPTDataLoader(train_set, batch_size=ConfigurationDict.get('batch_size'), shuffle=False, num_workers=int(ConfigurationDict.get('n_workers')))
-        test_DataLoader = emoMusicPTDataLoader(test_set, batch_size=ConfigurationDict.get('batch_size'), shuffle=False, num_workers=int(ConfigurationDict.get('n_workers')))
+        train_DataLoader = emoMusicPTDataLoader(train_set, batch_size=ConfigurationDict.get('batch_size'),
+                                                shuffle=False, num_workers=int(ConfigurationDict.get('n_workers')))
+        test_DataLoader = emoMusicPTDataLoader(test_set, batch_size=ConfigurationDict.get('batch_size'), shuffle=False,
+                                               num_workers=int(ConfigurationDict.get('n_workers')))
         # val_DataLoader = emoMusicPTDataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=WORKERS)
         val_DataLoader = None
         print(f'\n***** [main.py]: emoMusicPTDataLoader for train/test created *****\n\n'
@@ -216,8 +187,7 @@ if __name__ == '__main__':
               f'\n-------------\n'
               f'\tbatch_size: {ConfigurationDict.get("batch_size")}'
               f'\tn_workers: {ConfigurationDict.get("n_workers")}\n')
-        b.end_timer()
-        del b
+
         '''
         b = Benchmark("[main.py] pytorch_model_timer")
         b.start_timer()
@@ -231,9 +201,9 @@ if __name__ == '__main__':
         # Defining training Policies
         TrainingSettings = {
             "batch_size": ConfigurationDict.get('batch_size'),
-            "epochs": 400,
+            "epochs": 100,
             "print_preds_every": 250,
-            "learning_rate": 0.01,
+            "learning_rate": 0.001,
             "stopping_rate": 1e-7,
             "weight_decay": 0.0001,
             "momentum": 0.8
@@ -260,49 +230,67 @@ if __name__ == '__main__':
         # collect
         bundle = {**TrainingSettings, **TrainingPolicies, **TrainSavingsPolicies}
 
-        b = Benchmark("TorchM5 model timer")
-        b.start_timer()
-
-        hyperparams = {
-            "__CONFIG__": 3,
-            "n_input": 1,  # the real audio channel is called n_input
-            "n_output": pytorch_dataset.num_classes,
-            "kernel_size": 220,
-            "kernel_shift": 110,
-            "kernel_features_maps": 8 * 16,     # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
-            "groups": 1,
-            "dropout": True,
-            "dropout_p": 0.25,
-            "slice_mode": pytorch_dataset.slice_mode
-        }
         '''
         model, optim, runner_settings, loaded_checkpoint['metadata'] = runner.load_model(path)
         '''
-        model = TorchM5(hyperparams=hyperparams)
+        exit_code = None
+        if TASK == 'raw':
+            hyperparams = {
+                "__CONFIG__": 3,
+                "n_input": 1,  # the real audio channel is called n_input
+                "n_output": pytorch_dataset.num_classes,
+                "kernel_size": 880,
+                "kernel_shift": 440,
+                "kernel_features_maps": 8 * 16,
+                # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
+                "groups": 1,
+                "dropout": True,
+                "dropout_p": 0.25,
+                "slice_mode": pytorch_dataset.slice_mode
+            }
 
-        model.save_dir = pytorch_dataset.get_save_dir()
-        model.example_0, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = train_DataLoader.dataset[0]
-        model.input_shape = model.example_0.shape
-        b.end_timer()
-        del b
-        # %%
-        b = Benchmark("runner_timer")
-        b.start_timer()
+            model = TorchM5(hyperparams=hyperparams)
 
-        runner = Runner(_model=model, _train_dl=train_DataLoader, _test_dl=test_DataLoader, _bundle=bundle)
+            model.save_dir = pytorch_dataset.get_save_dir()
+            model.example_0, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = \
+                train_DataLoader.dataset[0]
+            model.input_shape = model.example_0.shape
 
-        exit_code = runner.train()
-        b.end_timer()
-        del b
+            runner = Runner(_model=model, _train_dl=train_DataLoader, _test_dl=test_DataLoader, _bundle=bundle,
+                            task=TASK)
+            exit_code = runner.train()
+
+        elif TASK == 'mfcc':
+            '''
+            model = MFCC_baseline(False, hyperparams)
+            model.save_dir = pytorch_dataset.get_save_dir()
+            model.mfcc_features_dict_ex0, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = \
+                train_DataLoader.dataset[0]
+            model.input_shape = model.example_0.shape
+            '''
+        elif TASK == 'mel':
+            hyperparams = {
+                "n_output": pytorch_dataset.num_classes,
+                "dropout": True,
+                "dropout_p": 0.25,
+            }
+            model = MEL_baseline(verbose=False, hyperparams=hyperparams)
+            model.save_dir = pytorch_dataset.get_save_dir()
+            model.ex0_mel, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = train_DataLoader.dataset[0]
+            model.input_shape = model.ex0_mel.shape
+            runner = MEL_Runner(_model=model, _train_dl=train_DataLoader, _test_dl=test_DataLoader, _bundle=bundle,
+                            task=TASK)
+            exit_code = runner.train()
+
+        else:
+            print('Task not defined')
+            sys.exit(-1)
+
 
         if exit_code == runner.SUCCESS:
             print(f'[main.py] Training Done! exit_code: {exit_code} -> SUCCESS')
 
-            b = Benchmark("[main.py] runner.eval() timer")
-            b.start_timer()
             exit_code = runner.eval()
-            b.end_timer()
-            del b
 
             if exit_code == runner.SUCCESS:
                 print(f'[main.py] Evaluation of Test set Done! exit_code: {exit_code} -> SUCCESS')
@@ -320,5 +308,67 @@ if __name__ == '__main__':
             del runner, model
             print(f'[main.py] Training returned with a not expected exit code {exit_code} -> unknown')
 
-    # %%
-    sys.exit(0)
+
+def generate_csv():
+    # %% Create music-emotions labels csv from arousal and valence csv
+    if verbose:
+        print(f'Checking existence of {music_labels_csv_root}\n'
+              f'If exists: check if empty else: create the folder and generate the csv')
+    if save_csv_path is not None:
+        if not os.path.exists(music_labels_csv_root):
+            os.mkdir(music_labels_csv_root)
+            if verbose:
+                print(f'The path did not existed, starting csv generation and save at {save_music_emo_csv_path}')
+
+            va2emo.generateMusicEmo_csv(save_music_emo_csv_path, music_data_root)
+        else:
+            if not os.listdir(music_labels_csv_root):  # directory is empty
+                if verbose:
+                    print(
+                        f'The path exists but is empty, starting csv generation and save at {save_music_emo_csv_path}')
+
+                va2emo.generateMusicEmo_csv(save_music_emo_csv_path, music_data_root)
+            else:
+                # directory is not empty, file exist
+                print(f'\n\n>>The file {save_music_emo_csv_path} already exists\n\n')
+                u.displayCSV_info(save_music_emo_csv_path)
+
+
+def keras_main():
+    if keras_:
+        b = Benchmark("keras_dataset_timer")
+        b.start_timer()
+        music2emotion_Dataset = DatasetMusic2emotion(data_root=music_data_root, train_frac=0.9, run_config=run_config,
+                                                     preprocess=False)
+        print(f'Hey I am: {music2emotion_Dataset}')
+        b.end_timer()
+
+        b = Benchmark("keras_model_timer")
+        b.start_timer()
+        music2emotion_Model = CNN_BiGRU(music2emotion_Dataset, save_dir=save_dir_root, do_train=True, do_test=False,
+                                        load_model=False, load_model_path=(None, None))
+
+        b.end_timer()
+
+
+if __name__ == '__main__':
+
+    if verbose:
+        print(f'\n\nStarting main with env={run_config} with: '
+              f'\n\t- {music_data_root} as the root for music data'
+              f'\n\t- {music_dataset_path} as the path of the raw audio data'
+              f'\n\t- {image_data_root} as the root for image data'
+              f'\n\t- {code_root} as the root for code'
+              f'\n\n')
+
+    generate_csv()
+
+    if keras_:
+        keras_main()
+        sys.exit(0)
+    elif pytorch_:
+        pytorch_main()
+        sys.exit(0)
+    else:
+        print('No main to start')
+        sys.exit(0)
