@@ -101,6 +101,8 @@ if not os.path.exists(save_dir_root):
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
+__MODEL__VERSION__ = 5
+
 modelVersions = {
     0: 'Baseline',
     1: 'v1',
@@ -127,7 +129,7 @@ ConfigurationDict = {
     'dataset_root': '',
     'labels_root': '',
     'save_dir_root': '',
-    'model_version': modelVersions.get(5),
+    'model_version': modelVersions.get(__MODEL__VERSION__),
     'batch_size': '',
     'n_workers': ''
 }
@@ -208,7 +210,9 @@ def pytorch_main():
             "learning_rate": 0.0001,
             "stopping_rate": 1e-7,
             "weight_decay": 0.0001,
-            "momentum": 0.8
+            "momentum": 0.8,
+            "model_versions": modelVersions,
+            "actual_version": __MODEL__VERSION__
         }
 
         TrainingPolicies = {
@@ -287,7 +291,6 @@ def pytorch_main():
         else:
             print('Task not defined')
             sys.exit(-1)
-
 
         if exit_code == runner.SUCCESS:
             print(f'[main.py] Training Done! exit_code: {exit_code} -> SUCCESS')

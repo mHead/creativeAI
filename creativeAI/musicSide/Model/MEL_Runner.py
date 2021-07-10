@@ -151,9 +151,12 @@ class MEL_Runner(object):
         with open(os.path.join(self.plots_save_path,
                                f'{self.model_wrapper.name}_{u.format_timestamp(ts)}_eval_report.txt'), 'w') as f:
             f.write(f'Classification report for: {self.model_wrapper.name}\n'
+                    f'___________________________________\n'
+                    f'version:\t{self.settings.get("actual_version")}\n'
                     f'lr:\t{self.settings.get("learning_rate")}\n'
                     f'bs:\t{self.settings.get("batch_size")}\n'
-                    f'ep:\t{self.settings.get("epochs")}')
+                    f'ep:\t{self.settings.get("epochs")}\n'
+                    f'___________________________________\n')
             f.write(classification_report(gt_list_flattened, preds_list_flattened))
 
     def train(self):
