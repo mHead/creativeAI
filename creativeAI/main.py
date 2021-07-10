@@ -114,7 +114,7 @@ versionsConfig = {
     'v1': {'batch_size': 4, 'n_workers': 2},
     'v2': {'batch_size': 4, 'n_workers': 2},
     'M5': {'batch_size': 2, 'n_workers': 2},
-    'MEL_baseline': {'batch_size': 16, 'n_workers': 2}
+    'MEL_baseline': {'batch_size': 32, 'n_workers': 2}
 }
 
 ConfigurationDict = {
@@ -157,7 +157,7 @@ def pytorch_main():
 
         print(f'\n***** [main.py]: emoMusicPT created for the task: {TASK} *****\n')
 
-        test_frac = 0.3
+        test_frac = 0.1
         train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
 
         # Plot splits
@@ -201,9 +201,9 @@ def pytorch_main():
         # Defining training Policies
         TrainingSettings = {
             "batch_size": ConfigurationDict.get('batch_size'),
-            "epochs": 100,
+            "epochs": 200,
             "print_preds_every": 250,
-            "learning_rate": 0.001,
+            "learning_rate": 0.0001,
             "stopping_rate": 1e-7,
             "weight_decay": 0.0001,
             "momentum": 0.8
@@ -229,7 +229,7 @@ def pytorch_main():
         }
         # collect
         bundle = {**TrainingSettings, **TrainingPolicies, **TrainSavingsPolicies}
-
+        print(TrainingSettings)
         '''
         model, optim, runner_settings, loaded_checkpoint['metadata'] = runner.load_model(path)
         '''

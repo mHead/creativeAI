@@ -93,19 +93,19 @@ class MEL_Runner(object):
         # model = u.set_device(self.model, self.device)
         # if slice_mode=False, slice_no is always 0
         if mode == 'train':
-            print(f'Setting up train dataloader...')
+            # print(f'Setting up train dataloader...')
             dataloader = self.train_dl
-            print(f'Entering training phase...\n')
+            # print(f'Entering training phase...\n')
         else:
-            print(f'Setting up test dataloader...')
+            # print(f'Setting up test dataloader...')
             preds = []
             ground_truth = []
             dataloader = self.test_dl
-            print(f'Entering evaluation phase...\n')
+            # print(f'Entering evaluation phase...\n')
 
         for batch, (song_data, song_id, filename, dominant_label, slice_no) in enumerate(dataloader):
             if cuda.is_available() and cuda.device_count() > 0:
-                print(f'cuda is available: moving src, target to cuda and perform forward')
+                # print(f'cuda is available: moving src, target to cuda and perform forward')
                 song_data = song_data.to('cuda')
                 dominant_label = dominant_label.to('cuda')
                 self.model = self.model.to('cuda')
@@ -252,13 +252,15 @@ class MEL_Runner(object):
 
             plt.savefig(os.path.join(self.plots_save_path,
                          f'{self.model_wrapper.name}'
+                         f'{self.settings.get("learning_rate")}'
                          f'_bs={self.settings.get("batch_size")}'
                          f'_ep={self.settings.get("epochs")}'
                          f'_{u.format_timestamp(ts)}_confusion_matrix.png'))
 
             #plt.show()
             print(classification_report(gt_list_flattened, preds_list_flattened))
-
+            with open(os.path.join(self.plots_save_path, f'{self.model_wrapper.name}_{u.format_timestamp(ts)}_eval_report.txt'), 'w') as f:
+                f.write(classification_report(gt_list_flattened, preds_list_flattened))
             print(f'[Runner.eval()]Epoch: 1/1\n'
                   f'\tTest Loss: {test_loss:.4f}\n\tTest Acc: {(100 * test_acc):.4f} %')
             return self.SUCCESS
