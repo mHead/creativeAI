@@ -2,6 +2,8 @@ import sys
 import datetime
 import torch
 import torchaudio
+import librosa
+import librosa.display
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
@@ -61,6 +63,10 @@ class emoMusicPTDataset(Dataset):
             self._SONGID_EMOTIONS_CSV = os.path.join(env.get('labels_root'), _MULTI_LABELS_PER_SONG_CSV)
             self._MUSIC_DATA_ROOT = env.get('music_data_root')
             self._SAVE_DIR_ROOT = env.get('save_dir_root')
+            if melspec:
+                self._n_fft = env.get("n_fft")
+                self._hop_length = env.get("hop_length")
+                self._n_mel = env.get("n_mel")
         else:
             print(f'Configuration Environment failed!')
             sys.exit(-1)
@@ -74,9 +80,9 @@ class emoMusicPTDataset(Dataset):
             self.is_mel_spec_mode = True
             self.mel_transformation = torchaudio.transforms.MelSpectrogram(
                 sample_rate=_SAMPLE_RATE,
-                n_fft=2048,
-                hop_length=1024,
-                n_mels=256
+                n_fft=env.get('n_fft'),
+                hop_length=env.get('hop_length'),
+                n_mels=env.get('n_mel')
             )
         elif mfcc and not melspec:
             self.name = 'emoMusicPTDataset - MFCC mode'
@@ -252,12 +258,22 @@ class emoMusicPTDataset(Dataset):
 
                 # 3. mel_spec_mode
                 elif self.is_mel_spec_mode:
-                    waveform, sample_rate = torchaudio.load(filename_path)
-                    assert sample_rate == _SAMPLE_RATE
-                    # mel_spec_dict = u.extract_mel_spectrogram_librosa(waveform, sr=sample_rate, n_fft=_SLICE_SIZE, hop_length=_SLICE_SIZE+1)
-                    # mel_spec_dict['waveform'] = waveform
+                    with_librosa = False
+                    if not with_librosa:
+                        waveform, sample_rate = torchaudio.load(filename_path)
+                        assert sample_rate == _SAMPLE_RATE
+                        mel_spec = self.mel_transformation(waveform)
+                        # TODO convert to RGB
+                    else:
+                        waveform, sample_rate = u.librosa_load_wrap(filename_path, sr=_SAMPLE_RATE)
 
-                    mel_spec = self.mel_transformation(waveform)
+                        mel_spec = u.extract_mel_spectrogram_librosa(waveform, sr=sample_rate, n_mel=self._n_mel, n_fft=self._n_fft, hop_length=self._hop_length)
+                        # TODO convert to RGB
+                        #librosa.display.specshow(mel_spec, y_axis='mel', x_axis='time')
+                        #plt.title('Mel Spectrogram')
+                        #plt.colorbar(format='%+2.0f dB')
+                        #plt.show()
+
                     return mel_spec, song_id, filename, emotion_label, self.slice_mode
 
                 else:

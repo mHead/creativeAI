@@ -104,14 +104,10 @@ def beat_track_wrap(y, sr=__SAMPLE_AT):
 
 
 # %% 0.1 MEL_SPEC
-def extract_mel_spectrogram_librosa(waveform, sr, n_fft=__INPUT_500ms_SAMPLES, hop_length=__INPUT_500ms_SAMPLES + 1):
-    mel_spec = librosa.feature.melspectrogram(y=waveform, sr=sr, n_fft=n_fft, hop_length=hop_length)
+def extract_mel_spectrogram_librosa(waveform, sr, n_mel, n_fft, hop_length):
+    mel_spec = librosa.feature.melspectrogram(y=waveform, sr=sr, n_mels=n_mel, n_fft=n_fft, hop_length=hop_length,)
     mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
 
-    librosa.display.specshow(mel_spec, y_axis='mel', x_axis='time')
-    plt.title('Mel Spectrogram')
-    plt.colorbar(format='%+2.0f dB')
-    # plt.show()
     return mel_spec
 
 # %% 1. WAV Tools

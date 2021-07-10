@@ -157,6 +157,9 @@ def pytorch_main():
         elif TASK == 'mfcc':
             pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict, mfcc=True)
         elif TASK == 'mel':
+            ConfigurationDict.__setitem__('n_fft', 512)
+            ConfigurationDict.__setitem__('hop_length', 256)
+            ConfigurationDict.__setitem__('n_mel', 256)
             pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict, melspec=True)
 
         print(f'\n***** [main.py]: emoMusicPT created for the task: {TASK} *****\n')
