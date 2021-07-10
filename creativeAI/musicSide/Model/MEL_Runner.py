@@ -54,7 +54,6 @@ class MEL_Runner(object):
         self.plots_save_path = self.set_saves_path(_bundle.get("plots_save_dir"))
         self.tensorboard_outs_path = self.set_saves_path(_bundle.get("tensorboard_outs"))
 
-
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,
                                         weight_decay=self.settings.get('weight_decay'))
 
@@ -64,6 +63,163 @@ class MEL_Runner(object):
 
         self.criterion = torch.nn.CrossEntropyLoss(weight=None, size_average=None, ignore_index=-100, reduce=None,
                                                    reduction='mean')
+
+    def set_saves_path(self, path):
+        _path = os.path.join(self.model_wrapper.save_dir, path)
+
+        if not os.path.exists(_path):
+            os.mkdir(_path)
+
+        return _path
+
+    def early_stop(self, loss, epoch):
+        self.scheduler.step(loss, epoch)
+        self.learning_rate = self.optimizer.param_groups[0]['lr']
+        stop = self.learning_rate < self.stopping_rate
+        return stop
+
+    def get_likely_index(self, tensor):
+        return tensor.argmax(dim=-1)
+
+    def number_of_correct(self, pred, target):
+        return pred.squeeze().eq(target).sum().item() / float(pred.size(0))
+
+    def accuracy(self, source, target):
+        _, preds = torch.max(source, 1)
+        target = target.long().cpu()
+        correct = torch.sum(preds == target).data.item()
+
+        return correct / float(source.size(0))
+
+    def count_parameters(self, _model):
+        return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+
+    def store_weights_and_biases(self, epoch):
+        model_children = list(self.model.children())
+        epoch_weights = {epoch: []}
+        epoch_biases = {epoch: []}
+
+        for i in range(len(model_children)):
+            if isinstance(model_children[i], torch.nn.Conv1d) or isinstance(model_children[i], torch.nn.BatchNorm1d) or isinstance(model_children[i], torch.nn.Linear):
+                epoch_weights.get(epoch).append(model_children[i].weight)
+                epoch_biases.get(epoch).append(model_children[i].bias)
+
+        self.model.weights_list.append(epoch_weights)
+        self.model.biases.append(epoch_biases)
+
+    def print_prediction(self, current_batch, current_epoch, song_id, slice_no, filename, label, score):
+        if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
+            print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id: {song_id}')
+            _, preds = torch.max(score, 1)
+            print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
+
+    def create_classification_report(self, preds, gt):
+        preds_list = [a.squeeze().tolist() for a in preds]
+        gt_list = [a.squeeze().tolist() for a in gt]
+
+        preds_list_flattened = []
+        gt_list_flattened = []
+        for i in preds_list:
+            if isinstance(i, list):
+                for j in i:
+                    preds_list_flattened.append(j)
+            elif isinstance(i, int):
+                preds_list_flattened.append(i)
+
+        for i in gt_list:
+            if isinstance(i, list):
+                for j in i:
+                    gt_list_flattened.append(j)
+            elif isinstance(i, int):
+                gt_list_flattened.append(i)
+
+        confusion_matrix_df = pd.DataFrame(confusion_matrix(preds_list_flattened, gt_list_flattened))
+        plt.figure()
+        fig = sns.heatmap(confusion_matrix_df, annot=True)
+        plt.tight_layout()
+        ts = datetime.datetime.now()
+
+        plt.savefig(os.path.join(self.plots_save_path,
+                                 f'{self.model_wrapper.name}'
+                                 f'{self.settings.get("learning_rate")}'
+                                 f'_bs={self.settings.get("batch_size")}'
+                                 f'_ep={self.settings.get("epochs")}'
+                                 f'_{u.format_timestamp(ts)}_confusion_matrix.png'))
+
+        # plt.show()
+        print(classification_report(gt_list_flattened, preds_list_flattened))
+        with open(os.path.join(self.plots_save_path,
+                               f'{self.model_wrapper.name}_{u.format_timestamp(ts)}_eval_report.txt'), 'w') as f:
+            f.write(f'Classification report for: {self.model_wrapper.name}\n'
+                    f'lr:\t{self.settings.get("learning_rate")}\n'
+                    f'bs:\t{self.settings.get("batch_size")}\n'
+                    f'ep:\t{self.settings.get("epochs")}')
+            f.write(classification_report(gt_list_flattened, preds_list_flattened))
+
+    def train(self):
+        train_done = False
+        t = Benchmark("[Runner] train call")
+        print(f'Starting training loop of {self.model_wrapper.name} for {self.settings.get("epochs")} epochs')
+        print(f'\n\t- The model has {self.count_parameters(self.model)} parameters')
+        print(f'\n\t- Dropout: {self.model_wrapper.drop_out}\n')
+        t.start_timer()
+
+        train_losses = np.zeros(self.settings.get('epochs'))
+        train_accuracies = np.zeros(self.settings.get('epochs'))
+
+        for epoch in range(self.settings.get('epochs')):
+            # print(f'\n\n[Runner.run(train_dl, {epoch + 1}, {self.model.slice_mode()})] called by Runner.train()\n')
+            train_loss, train_acc = self.run(epoch + 1, 'train')
+            # Store epoch stats
+            train_losses[epoch] = train_loss
+            train_accuracies[epoch] = train_acc
+
+            # Store epoch weights and biases
+            # self.store_weights_and_biases(epoch)
+
+            print(f'[Runner.train()] Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
+                  f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
+
+            if self.early_stop(train_loss, epoch + 1):
+                self.save_model(epoch=epoch, early_stop=True)
+                break
+        train_done = True
+
+        if train_done:
+            print(f'[Runner] Training finished.')
+            # Print training statistics
+            self.plot_scatter_training_stats(train_losses, train_accuracies, self.settings.get('epochs'), mode='train')
+            best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
+            print(f'[Runner.train() -> train_done!]\n\tBest accuracy: {best_acc} at epoch {at_epoch}\n')
+
+            self.save_model(epoch, early_stop=False)
+
+            t.end_timer()
+            return self.SUCCESS
+        else:
+            t.end_timer()
+            return self.FAILURE
+
+    def eval(self):
+        eval_done = False
+
+        t = Benchmark("[Runner] eval call")
+        print(f'Starting evaluation')
+        t.start_timer()
+
+        test_loss, test_acc, preds, ground_truth = self.run(1, 'eval')
+        eval_done = True
+
+        if eval_done:
+            t.end_timer()
+
+            self.create_classification_report(preds, ground_truth)
+
+            print(f'[Runner.eval()]Epoch: 1/1\n'
+                  f'\tTest Loss: {test_loss:.4f}\n\tTest Acc: {(100 * test_acc):.4f} %')
+            return self.SUCCESS
+        else:
+            return self.FAILURE
 
     def run(self, current_epoch, mode='train'):
         """
@@ -85,7 +241,7 @@ class MEL_Runner(object):
         """
 
         self.model.train() if mode == 'train' else self.model.eval()
-        print(f'[Runner.run()] call for epoch: {current_epoch} / {self.settings.get("epochs")}')
+        # print(f'[Runner.run()] call for epoch: {current_epoch} / {self.settings.get("epochs")}')
 
         epoch_loss = 0.0
         epoch_acc_running_corrects = 0.0
@@ -142,143 +298,6 @@ class MEL_Runner(object):
             return epoch_loss, epoch_acc
         else:
             return epoch_loss, epoch_acc, preds, ground_truth
-
-    def early_stop(self, loss, epoch):
-        self.scheduler.step(loss, epoch)
-        self.learning_rate = self.optimizer.param_groups[0]['lr']
-        stop = self.learning_rate < self.stopping_rate
-        return stop
-
-    def get_likely_index(self, tensor):
-        return tensor.argmax(dim=-1)
-
-    def number_of_correct(self, pred, target):
-        return pred.squeeze().eq(target).sum().item() / float(pred.size(0))
-
-    def accuracy(self, source, target):
-        _, preds = torch.max(source, 1)
-        target = target.long().cpu()
-        correct = torch.sum(preds == target).data.item()
-
-        return correct / float(source.size(0))
-
-    def count_parameters(self, _model):
-            return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-
-
-    def train(self):
-        train_done = False
-
-        t = Benchmark("[Runner] train call")
-        print(f'Starting training loop of {self.model_wrapper.name} for {self.settings.get("epochs")} epochs')
-        print(f'\n\t- The model has {self.count_parameters(self.model)} parameters')
-        print(f'\n\t- Dropout: {self.model_wrapper.drop_out}\n')
-        t.start_timer()
-
-        train_losses = np.zeros(self.settings.get('epochs'))
-        train_accuracies = np.zeros(self.settings.get('epochs'))
-
-        for epoch in range(self.settings.get('epochs')):
-            # print(f'\n\n[Runner.run(train_dl, {epoch + 1}, {self.model.slice_mode()})] called by Runner.train()\n')
-            train_loss, train_acc = self.run(epoch + 1, 'train')
-            # Store epoch stats
-            train_losses[epoch] = train_loss
-            train_accuracies[epoch] = train_acc
-
-            # Store epoch weights and biases
-            # self.store_weights_and_biases(epoch)
-
-            print(f'[Runner.train()] Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
-                  f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
-
-            if self.early_stop(train_loss, epoch + 1):
-                self.save_model(epoch=epoch, early_stop=True)
-                break
-        train_done = True
-
-        if train_done:
-            print(f'[Runner: {self}] Training finished.')
-            # Print training statistics
-            self.plot_scatter_training_stats(train_losses, train_accuracies, self.settings.get('epochs'), mode='train')
-            best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
-            print(f'[Runner.train() -> train_done!]\n\tBest accuracy: {best_acc} at epoch {at_epoch}\n')
-
-            self.save_model(epoch, early_stop=False)
-
-            t.end_timer()
-            return self.SUCCESS
-        else:
-            t.end_timer()
-            return self.FAILURE
-
-    def eval(self):
-        eval_done = False
-
-        t = Benchmark("[Runner] eval call")
-        print(f'Starting evaluation for 1 epoch')
-        t.start_timer()
-
-        print(f'[Runner.run(test_dl, 1, slice_mode=False)] called by Runner.eval()')
-        test_loss, test_acc, preds, ground_truth = self.run(1, 'eval')
-        eval_done = True
-
-        if eval_done:
-            print(f'[Runner.eval(): {self}] Evaluation on test set finished.')
-            t.end_timer()
-            preds_list = [a.squeeze().tolist() for a in preds]
-            gt_list = [a.squeeze().tolist() for a in ground_truth]
-
-            preds_list_flattened = []
-            gt_list_flattened = []
-            for i in preds_list:
-                if isinstance(i, list):
-                    for j in i:
-                        preds_list_flattened.append(j)
-                elif isinstance(i, int):
-                    preds_list_flattened.append(i)
-
-            for i in gt_list:
-                if isinstance(i, list):
-                    for j in i:
-                        gt_list_flattened.append(j)
-                elif isinstance(i, int):
-                    gt_list_flattened.append(i)
-
-            confusion_matrix_df = pd.DataFrame(confusion_matrix(preds_list_flattened, gt_list_flattened))
-            plt.figure()
-            fig = sns.heatmap(confusion_matrix_df, annot=True)
-            plt.tight_layout()
-            ts = datetime.datetime.now()
-
-            plt.savefig(os.path.join(self.plots_save_path,
-                         f'{self.model_wrapper.name}'
-                         f'{self.settings.get("learning_rate")}'
-                         f'_bs={self.settings.get("batch_size")}'
-                         f'_ep={self.settings.get("epochs")}'
-                         f'_{u.format_timestamp(ts)}_confusion_matrix.png'))
-
-            #plt.show()
-            print(classification_report(gt_list_flattened, preds_list_flattened))
-            with open(os.path.join(self.plots_save_path, f'{self.model_wrapper.name}_{u.format_timestamp(ts)}_eval_report.txt'), 'w') as f:
-                f.write(classification_report(gt_list_flattened, preds_list_flattened))
-            print(f'[Runner.eval()]Epoch: 1/1\n'
-                  f'\tTest Loss: {test_loss:.4f}\n\tTest Acc: {(100 * test_acc):.4f} %')
-            return self.SUCCESS
-        else:
-            return self.FAILURE
-
-    def store_weights_and_biases(self, epoch):
-        model_children = list(self.model.children())
-        epoch_weights = {epoch: []}
-        epoch_biases = {epoch: []}
-
-        for i in range(len(model_children)):
-            if isinstance(model_children[i], torch.nn.Conv1d) or isinstance(model_children[i], torch.nn.BatchNorm1d) or isinstance(model_children[i], torch.nn.Linear):
-                epoch_weights.get(epoch).append(model_children[i].weight)
-                epoch_biases.get(epoch).append(model_children[i].bias)
-
-        self.model.weights_list.append(epoch_weights)
-        self.model.biases.append(epoch_biases)
 
     def plot_scatter_training_stats(self, losses, accuracies, epochs, mode=None):
         n_rows = 1
@@ -346,13 +365,6 @@ class MEL_Runner(object):
 
         # plt.show()
 
-    def print_prediction(self, current_batch, current_epoch, song_id, slice_no, filename, label, score):
-        if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
-            print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id: {song_id}')
-            _, preds = torch.max(score, 1)
-            print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
-
-
     def save_model(self, epoch, early_stop=False):
         d = datetime.datetime.now()
         path = self.best_model_to_save_path
@@ -390,13 +402,6 @@ class MEL_Runner(object):
 
         torch.save(checkpoint, path)
 
-    def set_saves_path(self, path):
-        _path = os.path.join(self.model_wrapper.save_dir, path)
-
-        if not os.path.exists(_path):
-            os.mkdir(_path)
-
-        return _path
 """
     def load_model(self, path):
         loaded_checkpoint = torch.load(path)  # Load the dictionary

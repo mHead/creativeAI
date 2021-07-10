@@ -106,7 +106,8 @@ modelVersions = {
     1: 'v1',
     2: 'v2',
     3: 'M5',
-    4: 'MEL_baseline'
+    4: 'MEL_resnet_baseline_v1',
+    5: 'MEL_resnet_baseline_v2'
 }
 
 versionsConfig = {
@@ -114,7 +115,8 @@ versionsConfig = {
     'v1': {'batch_size': 4, 'n_workers': 2},
     'v2': {'batch_size': 4, 'n_workers': 2},
     'M5': {'batch_size': 2, 'n_workers': 2},
-    'MEL_baseline': {'batch_size': 32, 'n_workers': 2}
+    'MEL_resnet_baseline_v1': {'batch_size': 32, 'n_workers': 2},
+    'MEL_resnet_baseline_v2': {'batch_size': 16, 'n_workers': 2}
 }
 
 ConfigurationDict = {
@@ -125,7 +127,7 @@ ConfigurationDict = {
     'dataset_root': '',
     'labels_root': '',
     'save_dir_root': '',
-    'model_version': modelVersions.get(4),
+    'model_version': modelVersions.get(5),
     'batch_size': '',
     'n_workers': ''
 }
