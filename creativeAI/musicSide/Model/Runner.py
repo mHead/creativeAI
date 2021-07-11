@@ -136,8 +136,8 @@ class Runner(object):
 
             # print first prediction plus every 'print_preds_every'
             # do not print all predictions, but the ones every 50 batches
-            if mode == 'train' and batch % 10 == 0:
-                self.print_prediction(batch, current_epoch, song_id, slice_no, filename, dominant_label, score)
+            # if mode == 'train' and batch % 10 == 0:
+                # self.print_prediction(batch, current_epoch, song_id, slice_no, filename, dominant_label, score)
 
             pred = self.get_likely_index(score)
             epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
@@ -180,6 +180,57 @@ class Runner(object):
     def count_parameters(self, _model):
             return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
 
+    def create_classification_report(self, preds, gt):
+        preds_list = [a.squeeze().tolist() for a in preds]
+        gt_list = [a.squeeze().tolist() for a in gt]
+
+        preds_list_flattened = []
+        gt_list_flattened = []
+        for i in preds_list:
+            if isinstance(i, list):
+                for j in i:
+                    preds_list_flattened.append(j)
+            elif isinstance(i, int):
+                preds_list_flattened.append(i)
+
+        for i in gt_list:
+            if isinstance(i, list):
+                for j in i:
+                    gt_list_flattened.append(j)
+            elif isinstance(i, int):
+                gt_list_flattened.append(i)
+
+        confusion_matrix_df = pd.DataFrame(confusion_matrix(preds_list_flattened, gt_list_flattened))
+        plt.figure()
+        fig = sns.heatmap(confusion_matrix_df, annot=True)
+        plt.tight_layout()
+        ts = datetime.datetime.now()
+
+        plt.savefig(os.path.join(self.plots_save_path,
+                                 f'{self.model.name}_conf={self.model.hyperparams["__CONFIG__"]}'
+                                 f'_kfm={self.model.kernel_features_maps}'
+                                 f'_ksz={self.model.kernel_size}'
+                                 f'_ksf={self.model.kernel_shift}'
+                                 f'_sm={self.model.slice_mode()}'
+                                 f'_bs={self.settings.get("batch_size")}'
+                                 f'_ep={self.settings.get("epochs")}'
+                                 f"_{u.format_timestamp(ts)}_confusion_matrix.png"))
+
+        # plt.show()
+        print(classification_report(gt_list_flattened, preds_list_flattened))
+        with open(os.path.join(self.plots_save_path,
+                               f'{self.model.name}_{u.format_timestamp(ts)}_eval_report.txt'), 'w') as f:
+            f.write(f'Classification report for: {self.model.name}'
+                    f'\n\n___________________________________\n\n'
+                    f'kernel features maps:\t{self.model.kernel_features_maps}\n'
+                    f'kernel size:\t\t{self.model.kernel_size}\n'
+                    f'kernel shift:\t\t{self.model.kernel_shift}\n'
+                    f'slice mode:\t\t{self.model.slice_mode()}\n'
+                    f'lr:\t\t{self.settings.get("learning_rate")}\n'
+                    f'bs:\t\t{self.settings.get("batch_size")}\n'
+                    f'ep:\t\t{self.settings.get("epochs")}\n'
+                    f'\n___________________________________\n')
+            f.write(classification_report(gt_list_flattened, preds_list_flattened))
 
     def train(self):
         train_done = False
@@ -241,43 +292,8 @@ class Runner(object):
         if eval_done:
             print(f'[Runner.eval(): {self}] Evaluation on test set finished.')
             t.end_timer()
-            preds_list = [a.squeeze().tolist() for a in preds]
-            gt_list = [a.squeeze().tolist() for a in ground_truth]
 
-            preds_list_flattened = []
-            gt_list_flattened = []
-            for i in preds_list:
-                if isinstance(i, list):
-                    for j in i:
-                        preds_list_flattened.append(j)
-                elif isinstance(i, int):
-                    preds_list_flattened.append(i)
-
-            for i in gt_list:
-                if isinstance(i, list):
-                    for j in i:
-                        gt_list_flattened.append(j)
-                elif isinstance(i, int):
-                    gt_list_flattened.append(i)
-
-            confusion_matrix_df = pd.DataFrame(confusion_matrix(preds_list_flattened, gt_list_flattened))
-            plt.figure()
-            fig = sns.heatmap(confusion_matrix_df, annot=True)
-            plt.tight_layout()
-            ts = datetime.datetime.now()
-
-            plt.savefig(os.path.join(self.plots_save_path,
-                         f'{self.model.name}_{self.model.hyperparams["__CONFIG__"]}'
-                         f'_kfm={self.model.kernel_features_maps}'
-                         f'_ksz={self.model.kernel_size}'
-                         f'_ksf={self.model.kernel_shift}'
-                         f'_sm={self.model.slice_mode()}'
-                         f'_bs={self.settings.get("batch_size")}'
-                         f'_ep={self.settings.get("epochs")}'
-                         f"_{u.format_timestamp(ts)}_confusion_matrix.png"))
-
-            plt.show()
-            print(classification_report(gt_list_flattened, preds_list_flattened))
+            self.create_classification_report(preds, ground_truth)
 
             print(f'[Runner.eval()]Epoch: 1/1\n'
                   f'\tTest Loss: {test_loss:.4f}\n\tTest Acc: {(100 * test_acc):.4f} %')

@@ -101,7 +101,7 @@ if not os.path.exists(save_dir_root):
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
-__MODEL__VERSION__ = 5
+__MODEL__VERSION__ = 3
 
 modelVersions = {
     0: 'Baseline',
@@ -147,6 +147,28 @@ ConfigurationDict.__setitem__('save_dir_root', save_dir_root)
 
 
 # %% PyTorch Main
+def evaluate_model(exit_code, runner):
+    if exit_code == runner.SUCCESS:
+        print(f'[main.py] Training Done! exit_code: {exit_code} -> SUCCESS')
+
+        exit_code = runner.eval()
+
+        if exit_code == runner.SUCCESS:
+            print(f'[main.py] Evaluation of Test set Done! exit_code: {exit_code} -> SUCCESS')
+            del runner
+        elif exit_code == runner.FAILURE:
+            print(f'[main.py] Evaluation Failed! exit_code: {exit_code} -> FAILURE')
+            del runner
+        else:
+            del runner
+            print(f'[main.py] Evaluation returned with a not expected exit code {exit_code} -> unknown')
+    elif exit_code == runner.FAILURE:
+        del runner
+        print(f'[main.py] Training Failed! exit_code: {exit_code} -> FAILURE')
+    else:
+        del runner
+        print(f'[main.py] Training returned with a not expected exit code {exit_code} -> unknown')
+
 def pytorch_main():
 
     if pytorch_:
@@ -157,9 +179,10 @@ def pytorch_main():
         elif TASK == 'mfcc':
             pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict, mfcc=True)
         elif TASK == 'mel':
-            ConfigurationDict.__setitem__('n_fft', 512)
-            ConfigurationDict.__setitem__('hop_length', 256)
-            ConfigurationDict.__setitem__('n_mel', 256)
+            ConfigurationDict.__setitem__('n_fft', 2048)
+            ConfigurationDict.__setitem__('hop_length', 1024)
+            ConfigurationDict.__setitem__('n_mel', 224)
+            ConfigurationDict.__setitem__('sample_rate', 44100)
             pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict, melspec=True)
 
         print(f'\n***** [main.py]: emoMusicPT created for the task: {TASK} *****\n')
@@ -208,9 +231,9 @@ def pytorch_main():
         # Defining training Policies
         TrainingSettings = {
             "batch_size": ConfigurationDict.get('batch_size'),
-            "epochs": 200,
+            "epochs": 1,
             "print_preds_every": 250,
-            "learning_rate": 0.0001,
+            "learning_rate": 0.001,
             "stopping_rate": 1e-7,
             "weight_decay": 0.0001,
             "momentum": 0.8,
@@ -244,30 +267,35 @@ def pytorch_main():
         '''
         exit_code = None
         if TASK == 'raw':
-            hyperparams = {
-                "__CONFIG__": 3,
-                "n_input": 1,  # the real audio channel is called n_input
-                "n_output": pytorch_dataset.num_classes,
-                "kernel_size": 880,
-                "kernel_shift": 440,
-                "kernel_features_maps": 8 * 16,
-                # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
-                "groups": 1,
-                "dropout": True,
-                "dropout_p": 0.25,
-                "slice_mode": pytorch_dataset.slice_mode
-            }
+            ks_list = [110, 220, 440, 880]
+            kfm_list = [8, 8*8, 8*16, 8*32]
+            for ks in ks_list:
+                for kfm in kfm_list:
+                    hyperparams = {
+                        "__CONFIG__": __MODEL__VERSION__,
+                        "n_input": 1,  # the real audio channel is called n_input
+                        "n_output": pytorch_dataset.num_classes,
+                        "kernel_size": ks,
+                        "kernel_shift": ks // 2,
+                        "kernel_features_maps": kfm,
+                        # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
+                        "groups": 1,
+                        "dropout": True,
+                        "dropout_p": 0.25,
+                        "slice_mode": pytorch_dataset.slice_mode
+                    }
 
-            model = TorchM5(hyperparams=hyperparams)
+                    model = TorchM5(hyperparams=hyperparams)
 
-            model.save_dir = pytorch_dataset.get_save_dir()
-            model.example_0, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = \
-                train_DataLoader.dataset[0]
-            model.input_shape = model.example_0.shape
+                    model.save_dir = pytorch_dataset.get_save_dir()
+                    model.example_0, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = \
+                        train_DataLoader.dataset[0]
+                    model.input_shape = model.example_0.shape
 
-            runner = Runner(_model=model, _train_dl=train_DataLoader, _test_dl=test_DataLoader, _bundle=bundle,
-                            task=TASK)
-            exit_code = runner.train()
+                    runner = Runner(_model=model, _train_dl=train_DataLoader, _test_dl=test_DataLoader, _bundle=bundle,
+                                    task=TASK)
+                    exit_code = runner.train()
+                    evaluate_model(exit_code, runner)
 
         elif TASK == 'mfcc':
             '''
@@ -279,6 +307,7 @@ def pytorch_main():
             '''
         elif TASK == 'mel':
             hyperparams = {
+                "__CONFIG__": __MODEL__VERSION__,
                 "n_output": pytorch_dataset.num_classes,
                 "dropout": True,
                 "dropout_p": 0.25,
@@ -290,31 +319,10 @@ def pytorch_main():
             runner = MEL_Runner(_model=model, _train_dl=train_DataLoader, _test_dl=test_DataLoader, _bundle=bundle,
                             task=TASK)
             exit_code = runner.train()
-
+            evaluate_model(exit_code, runner)
         else:
             print('Task not defined')
             sys.exit(-1)
-
-        if exit_code == runner.SUCCESS:
-            print(f'[main.py] Training Done! exit_code: {exit_code} -> SUCCESS')
-
-            exit_code = runner.eval()
-
-            if exit_code == runner.SUCCESS:
-                print(f'[main.py] Evaluation of Test set Done! exit_code: {exit_code} -> SUCCESS')
-                del runner, model
-            elif exit_code == runner.FAILURE:
-                print(f'[main.py] Evaluation Failed! exit_code: {exit_code} -> FAILURE')
-                del runner, model
-            else:
-                del runner, model
-                print(f'[main.py] Evaluation returned with a not expected exit code {exit_code} -> unknown')
-        elif exit_code == runner.FAILURE:
-            del runner, model
-            print(f'[main.py] Training Failed! exit_code: {exit_code} -> FAILURE')
-        else:
-            del runner, model
-            print(f'[main.py] Training returned with a not expected exit code {exit_code} -> unknown')
 
 
 def generate_csv():

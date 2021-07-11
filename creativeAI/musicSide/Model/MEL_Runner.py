@@ -150,79 +150,14 @@ class MEL_Runner(object):
         print(classification_report(gt_list_flattened, preds_list_flattened))
         with open(os.path.join(self.plots_save_path,
                                f'{self.model_wrapper.name}_{u.format_timestamp(ts)}_eval_report.txt'), 'w') as f:
-            f.write(f'Classification report for: {self.model_wrapper.name}\n'
-                    f'___________________________________\n'
+            f.write(f'Classification report for: {self.model_wrapper.name}'
+                    f'\n\n___________________________________\n\n'
                     f'version:\t{self.settings.get("actual_version")}\n'
-                    f'lr:\t{self.settings.get("learning_rate")}\n'
-                    f'bs:\t{self.settings.get("batch_size")}\n'
-                    f'ep:\t{self.settings.get("epochs")}\n'
-                    f'___________________________________\n')
+                    f'lr:\t\t{self.settings.get("learning_rate")}\n'
+                    f'bs:\t\t{self.settings.get("batch_size")}\n'
+                    f'ep:\t\t{self.settings.get("epochs")}\n'
+                    f'\n___________________________________\n')
             f.write(classification_report(gt_list_flattened, preds_list_flattened))
-
-    def train(self):
-        train_done = False
-        t = Benchmark("[Runner] train call")
-        print(f'Starting training loop of {self.model_wrapper.name} for {self.settings.get("epochs")} epochs')
-        print(f'\n\t- The model has {self.count_parameters(self.model)} parameters')
-        print(f'\n\t- Dropout: {self.model_wrapper.drop_out}\n')
-        t.start_timer()
-
-        train_losses = np.zeros(self.settings.get('epochs'))
-        train_accuracies = np.zeros(self.settings.get('epochs'))
-
-        for epoch in range(self.settings.get('epochs')):
-            # print(f'\n\n[Runner.run(train_dl, {epoch + 1}, {self.model.slice_mode()})] called by Runner.train()\n')
-            train_loss, train_acc = self.run(epoch + 1, 'train')
-            # Store epoch stats
-            train_losses[epoch] = train_loss
-            train_accuracies[epoch] = train_acc
-
-            # Store epoch weights and biases
-            # self.store_weights_and_biases(epoch)
-
-            print(f'[Runner.train()] Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
-                  f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
-
-            if self.early_stop(train_loss, epoch + 1):
-                self.save_model(epoch=epoch, early_stop=True)
-                break
-        train_done = True
-
-        if train_done:
-            print(f'[Runner] Training finished.')
-            # Print training statistics
-            self.plot_scatter_training_stats(train_losses, train_accuracies, self.settings.get('epochs'), mode='train')
-            best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
-            print(f'[Runner.train() -> train_done!]\n\tBest accuracy: {best_acc} at epoch {at_epoch}\n')
-
-            self.save_model(epoch, early_stop=False)
-
-            t.end_timer()
-            return self.SUCCESS
-        else:
-            t.end_timer()
-            return self.FAILURE
-
-    def eval(self):
-        eval_done = False
-
-        t = Benchmark("[Runner] eval call")
-        print(f'Starting evaluation')
-        t.start_timer()
-
-        test_loss, test_acc, preds, ground_truth = self.run(1, 'eval')
-        eval_done = True
-
-        if eval_done:
-            t.end_timer()
-
-            self.create_classification_report(preds, ground_truth)
-
-            print(f'[Runner.eval()]Epoch: 1/1\n'
-                  f'\tTest Loss: {test_loss:.4f}\n\tTest Acc: {(100 * test_acc):.4f} %')
-            return self.SUCCESS
-        else:
-            return self.FAILURE
 
     def run(self, current_epoch, mode='train'):
         """
@@ -301,6 +236,71 @@ class MEL_Runner(object):
             return epoch_loss, epoch_acc
         else:
             return epoch_loss, epoch_acc, preds, ground_truth
+
+    def train(self):
+        train_done = False
+        t = Benchmark("[Runner] train call")
+        print(f'Starting training loop of {self.model_wrapper.name} for {self.settings.get("epochs")} epochs')
+        print(f'\n\t- The model has {self.count_parameters(self.model)} parameters')
+        print(f'\n\t- Dropout: {self.model_wrapper.drop_out}\n')
+        t.start_timer()
+
+        train_losses = np.zeros(self.settings.get('epochs'))
+        train_accuracies = np.zeros(self.settings.get('epochs'))
+
+        for epoch in range(self.settings.get('epochs')):
+            # print(f'\n\n[Runner.run(train_dl, {epoch + 1}, {self.model.slice_mode()})] called by Runner.train()\n')
+            train_loss, train_acc = self.run(epoch + 1, 'train')
+            # Store epoch stats
+            train_losses[epoch] = train_loss
+            train_accuracies[epoch] = train_acc
+
+            # Store epoch weights and biases
+            # self.store_weights_and_biases(epoch)
+
+            print(f'[Runner.train()] Epoch: {epoch + 1}/{self.settings.get("epochs")}\n'
+                  f'\tTrain Loss: {train_loss:.4f}\n\tTrain Acc: {(100 * train_acc):.4f} %')
+
+            if self.early_stop(train_loss, epoch + 1):
+                self.save_model(epoch=epoch, early_stop=True)
+                break
+        train_done = True
+
+        if train_done:
+            print(f'[Runner] Training finished.')
+            # Print training statistics
+            self.plot_scatter_training_stats(train_losses, train_accuracies, self.settings.get('epochs'), mode='train')
+            best_acc, at_epoch = [np.amax(train_accuracies), np.where(train_accuracies == np.amax(train_accuracies))[0]]
+            print(f'[Runner.train() -> train_done!]\n\tBest accuracy: {best_acc} at epoch {at_epoch}\n')
+
+            self.save_model(epoch, early_stop=False)
+
+            t.end_timer()
+            return self.SUCCESS
+        else:
+            t.end_timer()
+            return self.FAILURE
+
+    def eval(self):
+        eval_done = False
+
+        t = Benchmark("[Runner] eval call")
+        print(f'Starting evaluation')
+        t.start_timer()
+
+        test_loss, test_acc, preds, ground_truth = self.run(1, 'eval')
+        eval_done = True
+
+        if eval_done:
+            t.end_timer()
+
+            self.create_classification_report(preds, ground_truth)
+
+            print(f'[Runner.eval()]Epoch: 1/1\n'
+                  f'\tTest Loss: {test_loss:.4f}\n\tTest Acc: {(100 * test_acc):.4f} %')
+            return self.SUCCESS
+        else:
+            return self.FAILURE
 
     def plot_scatter_training_stats(self, losses, accuracies, epochs, mode=None):
         n_rows = 1

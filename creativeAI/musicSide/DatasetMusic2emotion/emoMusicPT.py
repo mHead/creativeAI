@@ -2,8 +2,16 @@ import sys
 import datetime
 import torch
 import torchaudio
+import torchvision
+from torchvision import transforms as T
+from PIL import Image
 import librosa
 import librosa.display
+import numpy as np
+import re
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
@@ -11,11 +19,6 @@ from ..DatasetMusic2emotion.tools import utils as u
 from ..DatasetMusic2emotion.tools import va2emotion as va2emo
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.model_selection import StratifiedKFold
-import numpy as np
-import re
-import os
-import pandas as pd
-import matplotlib.pyplot as plt
 
 _MULTI_LABELS_PER_SONG_CSV = r'music_emotions_labels.csv'
 _SINGLE_LABEL_PER_SONG_CSV = r'music_single_emotion_labels.csv'
@@ -82,8 +85,8 @@ class emoMusicPTDataset(Dataset):
                 sample_rate=_SAMPLE_RATE,
                 n_fft=env.get('n_fft'),
                 hop_length=env.get('hop_length'),
-                n_mels=env.get('n_mel')
-            )
+                n_mels=env.get('n_mel'))
+
         elif mfcc and not melspec:
             self.name = 'emoMusicPTDataset - MFCC mode'
             self.is_mfcc_mode = True
@@ -262,19 +265,27 @@ class emoMusicPTDataset(Dataset):
                     if not with_librosa:
                         waveform, sample_rate = torchaudio.load(filename_path)
                         assert sample_rate == _SAMPLE_RATE
-                        mel_spec = self.mel_transformation(waveform)
                         # TODO convert to RGB
+                        # mel_spec_norm = self.compose_trans(waveform)
+                        # image = T.ToPILImage(mel_spec_norm)
+                        mel_spec = self.mel_transformation(waveform)
+                        # mel_spec_ = torchaudio.transforms.AmplitudeToDB()(mel_spec_)
+                        # self.plot_spectrogram(mel_spec_)
+                        # mel_spec_ = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(mel_spec_)
+                        return mel_spec, song_id, filename, emotion_label, self.slice_mode
+
                     else:
                         waveform, sample_rate = u.librosa_load_wrap(filename_path, sr=_SAMPLE_RATE)
 
-                        mel_spec = u.extract_mel_spectrogram_librosa(waveform, sr=sample_rate, n_mel=self._n_mel, n_fft=self._n_fft, hop_length=self._hop_length)
+                        mel_spec = u.extract_mel_spectrogram_librosa(waveform, sr=sample_rate, n_mel=self._n_mel,
+                                                                     n_fft=self._n_fft, hop_length=self._hop_length)
                         # TODO convert to RGB
+                        #fig = plt.figure(figsize=(25, 10))
                         #librosa.display.specshow(mel_spec, y_axis='mel', x_axis='time')
                         #plt.title('Mel Spectrogram')
                         #plt.colorbar(format='%+2.0f dB')
                         #plt.show()
-
-                    return mel_spec, song_id, filename, emotion_label, self.slice_mode
+                        return mel_spec, song_id, filename, emotion_label, self.slice_mode
 
                 else:
                     print(f'Wrong Dataset Mode among raw_audio, mfcc, mel_spec')
@@ -283,6 +294,12 @@ class emoMusicPTDataset(Dataset):
             else:
                 print(f'The file at {filename_path} does not exist')
                 sys.exit(-1)
+
+    def plot_spectrogram(self, mel_spec):
+        fig = plt.figure(figsize=(25, 10))
+        # plt.imshow(mel_spec.permute(1, 2, 0))
+        # plt.savefig('/Users/head/Desktop/ciao.jpg')
+        # plt.show()
 
     def stratified_song_level_split(self, test_fraction):
         splitter = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=0)
