@@ -101,7 +101,7 @@ if not os.path.exists(save_dir_root):
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
-__MODEL__VERSION__ = 3
+__MODEL__VERSION__ = 5
 
 modelVersions = {
     0: 'Baseline',
@@ -227,11 +227,10 @@ def pytorch_main():
         del b
         '''
 
-        # %% TorchM5 model
         # Defining training Policies
         TrainingSettings = {
             "batch_size": ConfigurationDict.get('batch_size'),
-            "epochs": 1,
+            "epochs": 40,
             "print_preds_every": 250,
             "learning_rate": 0.001,
             "stopping_rate": 1e-7,
@@ -259,6 +258,7 @@ def pytorch_main():
             "verbose": 1,
             "run_config": ConfigurationDict.get('run_config')
         }
+
         # collect
         bundle = {**TrainingSettings, **TrainingPolicies, **TrainSavingsPolicies}
         print(TrainingSettings)
@@ -306,20 +306,22 @@ def pytorch_main():
             model.input_shape = model.example_0.shape
             '''
         elif TASK == 'mel':
-            hyperparams = {
-                "__CONFIG__": __MODEL__VERSION__,
-                "n_output": pytorch_dataset.num_classes,
-                "dropout": True,
-                "dropout_p": 0.25,
-            }
-            model = MEL_baseline(verbose=False, hyperparams=hyperparams)
-            model.save_dir = pytorch_dataset.get_save_dir()
-            model.ex0_mel, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = train_DataLoader.dataset[0]
-            model.input_shape = model.ex0_mel.shape
-            runner = MEL_Runner(_model=model, _train_dl=train_DataLoader, _test_dl=test_DataLoader, _bundle=bundle,
-                            task=TASK)
-            exit_code = runner.train()
-            evaluate_model(exit_code, runner)
+            dropout_list = [0.1, 0.15, 0.2, 0.25]
+            for d in dropout_list:
+                hyperparams = {
+                    "__CONFIG__": __MODEL__VERSION__,
+                    "n_output": pytorch_dataset.num_classes,
+                    "dropout": True,
+                    "dropout_p": d,
+                }
+                model = MEL_baseline(verbose=False, hyperparams=hyperparams)
+                model.save_dir = pytorch_dataset.get_save_dir()
+                model.ex0_mel, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = train_DataLoader.dataset[0]
+                model.input_shape = model.ex0_mel.shape
+                runner = MEL_Runner(_model=model, _train_dl=train_DataLoader, _test_dl=test_DataLoader, _bundle=bundle,
+                                task=TASK)
+                exit_code = runner.train()
+                evaluate_model(exit_code, runner)
         else:
             print('Task not defined')
             sys.exit(-1)

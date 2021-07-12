@@ -62,7 +62,6 @@ pip install torchvision==0.9.0 --user
 pip install tensorboard==2.5.0 --user
 pip install librosa==0.8.1 --user
 pip install seaborn==0.11.1 --user
-pip install
 
 
 echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"

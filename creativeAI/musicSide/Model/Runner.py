@@ -104,19 +104,19 @@ class Runner(object):
         # model = u.set_device(self.model, self.device)
         # if slice_mode=False, slice_no is always 0
         if mode == 'train':
-            print(f'Setting up train dataloader...')
+            # print(f'Setting up train dataloader...')
             dataloader = self.train_dl
-            print(f'Entering training phase...\n')
+            # print(f'Entering training phase...\n')
         else:
-            print(f'Setting up test dataloader...')
+            # print(f'Setting up test dataloader...')
             preds = []
             ground_truth = []
             dataloader = self.test_dl
-            print(f'Entering evaluation phase...\n')
+            # print(f'Entering evaluation phase...\n')
 
         for batch, (song_data, song_id, filename, dominant_label, slice_no) in enumerate(dataloader):
             if cuda.is_available() and cuda.device_count() > 0:
-                print(f'cuda is available: moving src, target to cuda and perform forward')
+                # print(f'cuda is available: moving src, target to cuda and perform forward')
                 song_data = song_data.to('cuda')
                 dominant_label = dominant_label.to('cuda')
                 self.model = self.model.to('cuda')
