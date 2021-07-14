@@ -121,7 +121,7 @@ class Runner(object):
                 song_data = song_data.to('cuda')
                 dominant_label = dominant_label.to('cuda')
                 self.model = self.model.to('cuda')
-                self.criterion_weights = self.criterion_weights.to('cuda')
+                self.criterion = self.criterion.to('cuda')
 
                 # clear gradients
             if mode == 'train':
@@ -134,6 +134,7 @@ class Runner(object):
                 loss = F.nll_loss(output.squeeze(), dominant_label)
             else:
                 score, flatten = self.model(song_data)
+                score = score.to('cuda')
                 loss = self.criterion(score, dominant_label)
 
             # print first prediction plus every 'print_preds_every'
