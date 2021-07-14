@@ -276,7 +276,7 @@ def pytorch_main():
         '''
         exit_code = None
         if TASK == 'raw':
-            ks_list = [110, 220, 440, 880]
+            ks_list = [110, 220, 440, 660, 880]
             kfm_list = [8, 8*2, 8*4, 8*8, 8*16, 8*32]
             for ks in ks_list:
                 for kfm in kfm_list:

@@ -67,5 +67,5 @@ pip install seaborn==0.11.1 --user
 echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
 
 
-python3 ${code} -v -r ${repo_root_legion} -mel
+python3 ${code} -v -r ${repo_root_legion} -raw
 #/Users/head/PycharmProjects/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav
