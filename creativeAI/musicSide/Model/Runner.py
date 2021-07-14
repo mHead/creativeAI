@@ -121,6 +121,7 @@ class Runner(object):
                 song_data = song_data.to('cuda')
                 dominant_label = dominant_label.to('cuda')
                 self.model = self.model.to('cuda')
+                self.criterion_weights = self.criterion_weights.to('cuda')
 
                 # clear gradients
             if mode == 'train':
