@@ -305,8 +305,10 @@ class emoMusicPTDataset(Dataset):
         splitter = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=0)
         if not self.slice_mode:
             splits = splitter.split(self.wav_filenames, self.labels_song_level[:len(self.wav_filenames)])
+            labels = self.labels_song_level[:len(self.wav_filenames)]
         else:
             splits = splitter.split(self.wav_filenames, self.labels_slice_level[:len(self.wav_filenames)])
+            labels = self.labels_slice_level[:len(self.wav_filenames)]
         train_index = []
         test_index = []
         for train_index, test_index in splits:
@@ -316,7 +318,15 @@ class emoMusicPTDataset(Dataset):
         # train_index.sort()
         # test_index.sort()
         print(f'\n[emoMusicPTDataset.py] type train_indexes {type(train_index)}\ntype test_indexes {type(test_index)}')
-        return train_index, test_index
+        train_distribution, test_distribution, _ = self.calculate_classes_distribution(labels, train_index, test_index, None)
+        class_distribution = np.zeros(self.num_classes)
+        for i, v in enumerate(test_distribution):
+            class_distribution[i] = train_distribution[i] + v
+        assert sum(class_distribution) == len(self)
+        weights_for_criterion = np.ones(self.num_classes)
+        weights_for_criterion /= class_distribution
+
+        return train_index, test_index, weights_for_criterion
 
     def expand_filenames(self, wav_filenames):
         abstract_filenames = []
@@ -328,10 +338,7 @@ class emoMusicPTDataset(Dataset):
     def stratifiedKFold_song_level(self, n_splits, shuffle, random_state=None):
         splitter = StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
 
-    def plot_indices_distribution(self, labels, train_indexes, test_indexes, val_indexes=None):
-        """
-        Collect distrubution per subset
-        """
+    def calculate_classes_distribution(self, labels, train_indexes, test_indexes, val_indexes = None):
         train_emotion_distribuion = np.zeros(self.num_classes)
         test_emotion_distribution = np.zeros(self.num_classes)
 
@@ -344,11 +351,18 @@ class emoMusicPTDataset(Dataset):
         if val_indexes is not None:
             val_emotion_distribution = np.zeros(self.num_classes)
             for val_index in val_indexes:
-                val_emotion_distribution[labels[test_index]] *= 1
+                val_emotion_distribution[labels[test_index]] += 1
 
             assert all(val_emotion_distribution) > 0
-
         assert all(train_emotion_distribuion) > 0 and all(test_emotion_distribution) > 0
+        if val_indexes is not None:
+            return train_emotion_distribuion, test_emotion_distribution, val_emotion_distribution
+        else:
+            return train_emotion_distribuion, test_emotion_distribution, None
+
+    def calculate_classes_percentages(self, labels, train_indexes, test_indexes, val_indexes=None):
+        train_emotion_distribution, test_emotion_distribution, val_emotion_distribution = \
+            self.calculate_classes_distribution(labels, train_indexes, test_indexes, val_indexes)
 
         # calculate percentiles
         train_emotion_percentiles = np.zeros(self.num_classes, dtype=np.float32)
@@ -357,14 +371,21 @@ class emoMusicPTDataset(Dataset):
             val_emotion_percentiles = np.zeros(self.num_classes, dtype=np.float32)
 
         for i in range(0, self.num_classes):
-            train_emotion_percentiles[i] = (train_emotion_distribuion[i] * 100) / sum(train_emotion_distribuion)
+            train_emotion_percentiles[i] = (train_emotion_distribution[i] * 100) / sum(train_emotion_distribution)
             test_emotion_percentiles[i] = (test_emotion_distribution[i] * 100) / sum(test_emotion_distribution)
             if val_indexes is not None:
                 val_emotion_percentiles[i] = (val_emotion_distribution[i] * 100) / sum(val_emotion_distribution)
                 assert all(sum(val_emotion_percentiles) == 100)
 
         assert np.round(sum(train_emotion_percentiles)) == 100 and np.round(sum(test_emotion_percentiles)) == 100
+        return train_emotion_percentiles, test_emotion_percentiles
 
+    def plot_indices_distribution(self, labels, train_indexes, test_indexes, val_indexes=None):
+        """
+        Collect distrubution per subset
+        """
+
+        train_emotion_percentiles, test_emotion_percentiles = self.calculate_classes_percentages(labels, train_indexes, test_indexes, None)
         n_rows = 1
         n_cols = 2
         if val_indexes is not None:

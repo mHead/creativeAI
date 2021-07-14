@@ -101,24 +101,31 @@ if not os.path.exists(save_dir_root):
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
-__MODEL__VERSION__ = 5
+__MODEL__VERSION__ = 3
+models = ['Baseline', 'v1', 'v2', 'M5', 'M11', 'M18', 'MEL_resnet_baseline_v1', 'MEL_resnet_baseline_v2', 'MFCC_resnet_baseline']
+__MODEL__VERSION__NAME__ = models[__MODEL__VERSION__]
 
 modelVersions = {
     0: 'Baseline',
     1: 'v1',
     2: 'v2',
     3: 'M5',
-    4: 'MEL_resnet_baseline_v1',
-    5: 'MEL_resnet_baseline_v2'
+    4: 'M11',
+    5: 'M18',
+    6: 'MEL_resnet_baseline_v1',
+    7: 'MEL_resnet_baseline_v2',
+    8: 'MFCC_resnet_baseline'
 }
 
 versionsConfig = {
     'Baseline': '',
-    'v1': {'batch_size': 4, 'n_workers': 2},
-    'v2': {'batch_size': 4, 'n_workers': 2},
-    'M5': {'batch_size': 2, 'n_workers': 2},
-    'MEL_resnet_baseline_v1': {'batch_size': 32, 'n_workers': 2},
-    'MEL_resnet_baseline_v2': {'batch_size': 16, 'n_workers': 2}
+    'v1': {'batch_size': 4, 'n_workers': 2, 'ep': 250},
+    'v2': {'batch_size': 4, 'n_workers': 2, 'ep': 250},
+    'M5': {'batch_size': 2, 'n_workers': 2, 'ep': 250},
+    'M11': {'batch_size': 2, 'n_workers': 2, 'ep': 250},
+    'M18': {'batch_size': 2, 'n_workers': 2, 'ep': 250},
+    'MEL_resnet_baseline_v1': {'batch_size': 32, 'n_workers': 2, 'ep': 40},
+    'MEL_resnet_baseline_v2': {'batch_size': 16, 'n_workers': 2, 'ep': 40}
 }
 
 ConfigurationDict = {
@@ -130,13 +137,15 @@ ConfigurationDict = {
     'labels_root': '',
     'save_dir_root': '',
     'model_version': modelVersions.get(__MODEL__VERSION__),
+    'model_name': __MODEL__VERSION__NAME__,
     'batch_size': '',
     'n_workers': ''
 }
 train_model_conf = versionsConfig.get(ConfigurationDict.get('model_version'))
 
-ConfigurationDict.__setitem__('batch_size', train_model_conf['batch_size'])
-ConfigurationDict.__setitem__('n_workers', train_model_conf['n_workers'])
+ConfigurationDict.__setitem__('batch_size', train_model_conf.get('batch_size'))
+ConfigurationDict.__setitem__('n_workers', train_model_conf.get('n_workers'))
+ConfigurationDict.__setitem__('ep', train_model_conf.get('ep'))
 ConfigurationDict.__setitem__('run_config', run_config)
 ConfigurationDict.__setitem__('repo_root', repo_root)
 ConfigurationDict.__setitem__('code_root', code_root)
@@ -154,23 +163,23 @@ def evaluate_model(exit_code, runner):
         exit_code = runner.eval()
 
         if exit_code == runner.SUCCESS:
-            print(f'[main.py] Evaluation of Test set Done! exit_code: {exit_code} -> SUCCESS')
+            print(f'[main.py] Evaluation of Test set Done! exit_code: {exit_code} -> SUCCESS\n\n\n')
             del runner
         elif exit_code == runner.FAILURE:
-            print(f'[main.py] Evaluation Failed! exit_code: {exit_code} -> FAILURE')
+            print(f'[main.py] Evaluation Failed! exit_code: {exit_code} -> FAILURE\n\n\n')
             del runner
         else:
             del runner
-            print(f'[main.py] Evaluation returned with a not expected exit code {exit_code} -> unknown')
+            print(f'[main.py] Evaluation returned with a not expected exit code {exit_code} -> unknown\n\n\n')
     elif exit_code == runner.FAILURE:
         del runner
-        print(f'[main.py] Training Failed! exit_code: {exit_code} -> FAILURE')
+        print(f'[main.py] Training Failed! exit_code: {exit_code} -> FAILURE\n\n\n')
     else:
         del runner
-        print(f'[main.py] Training returned with a not expected exit code {exit_code} -> unknown')
+        print(f'[main.py] Training returned with a not expected exit code {exit_code} -> unknown\n\n\n')
+
 
 def pytorch_main():
-
     if pytorch_:
         # Create the Dataset Object, TASK variable will decide how __getitem__ works
         pytorch_dataset = None
@@ -188,16 +197,15 @@ def pytorch_main():
         print(f'\n***** [main.py]: emoMusicPT created for the task: {TASK} *****\n')
 
         test_frac = 0.1
-        train_indexes, test_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
+        train_indexes, test_indexes, criterion_weights = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
 
         # Plot splits
-        if not pytorch_dataset.slice_mode:
-            pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_song_level, train_indexes, test_indexes,
-                                                      val_indexes=None)
-        else:
-            pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_slice_level, train_indexes, test_indexes,
-                                                      val_indexes=None)
-        # train_indexes, val_indexes = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
+        # if not pytorch_dataset.slice_mode:
+        #    pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_song_level, train_indexes, test_indexes,
+        #                                              val_indexes=None)
+        #else:
+        #    pytorch_dataset.plot_indices_distribution(pytorch_dataset.labels_slice_level, train_indexes, test_indexes,
+        #                                              val_indexes=None)
 
         # Defines Dataloaders
         train_set = emoMusicPTSubset(pytorch_dataset, train_indexes)
@@ -230,14 +238,15 @@ def pytorch_main():
         # Defining training Policies
         TrainingSettings = {
             "batch_size": ConfigurationDict.get('batch_size'),
-            "epochs": 40,
-            "print_preds_every": 250,
+            "epochs": ConfigurationDict.get('ep'),
+            "print_preds_every": ConfigurationDict.get('ep') // 2,
             "learning_rate": 0.001,
             "stopping_rate": 1e-7,
             "weight_decay": 0.0001,
             "momentum": 0.8,
             "model_versions": modelVersions,
-            "actual_version": __MODEL__VERSION__
+            "actual_version": __MODEL__VERSION__,
+            "criterion_weights": criterion_weights      # Runner class will set weight flag of criterion
         }
 
         TrainingPolicies = {
@@ -268,7 +277,7 @@ def pytorch_main():
         exit_code = None
         if TASK == 'raw':
             ks_list = [110, 220, 440, 880]
-            kfm_list = [8, 8*8, 8*16, 8*32]
+            kfm_list = [8, 8*2, 8*4, 8*8, 8*16, 8*32]
             for ks in ks_list:
                 for kfm in kfm_list:
                     hyperparams = {
