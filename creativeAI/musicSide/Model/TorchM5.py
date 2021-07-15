@@ -79,7 +79,7 @@ class TorchM5(nn.Module):
                 self.pool4 = nn.MaxPool1d(4)
             # if self.drop_out:
             # self.dropout4 = nn.Dropout(self.drop_out_p)
-            if self.name == "TorchM5_music2emoCNN_criterion_version":
+            if self.name.__contains__('criterion_version'):
                 self.flatten = nn.Flatten()
             self.fc1 = nn.Linear(2 * self.n_channel, self.num_classes)
 
@@ -116,7 +116,7 @@ class TorchM5(nn.Module):
 
         x = F.avg_pool1d(x, kernel_size=ks)
 
-        if self.name == 'TochM5_music2emoCNN':
+        if not self.name.__contains__('criterion_version'):
             # do as Documentation
             x = x.permute(0, 2, 1)
             x = self.fc1(x)

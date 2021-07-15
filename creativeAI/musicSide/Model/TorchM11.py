@@ -98,7 +98,7 @@ class TorchM11(nn.Module):
             if self.drop_out:
                 self.dropout5 = nn.Dropout(self.drop_out_p)
 
-            if self.name == "TorchM11_music2emoCNN_criterion_version":
+            if self.name.__contains__('criterion_version'):
                 self.flatten = nn.Flatten()
             self.fc1 = nn.Linear(8 * self.n_channel, self.num_classes)
 
@@ -152,7 +152,7 @@ class TorchM11(nn.Module):
 
         x = F.avg_pool1d(x, kernel_size=ks)
 
-        if not self.name.contains('criterion_version'):
+        if not self.name.__contains__('criterion_version'):
             # do as Documentation
             x = x.permute(0, 2, 1)
             x = self.fc1(x)

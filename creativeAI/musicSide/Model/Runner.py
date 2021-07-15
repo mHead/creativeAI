@@ -129,7 +129,7 @@ class Runner(object):
 
             # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
             # compute outputs
-            if not self.model.name.contains('criterion_version'):
+            if not self.model.name.__contains__('criterion_version'):
                 output = self.model(song_data)
                 loss = F.nll_loss(output.squeeze(), dominant_label)
             else:
