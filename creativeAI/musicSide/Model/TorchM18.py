@@ -55,33 +55,66 @@ class TorchM18(nn.Module):
             self.conv1 = nn.Conv1d(self.n_input, self.n_channel, kernel_size=self.hyperparams.get("kernel_size"),
                                    stride=self.hyperparams.get("kernel_shift"))
             self.bn1 = nn.BatchNorm1d(self.n_channel)
-            self.pool1 = nn.MaxPool1d(4)
+            self.pool1 = nn.MaxPool1d(4, stride=None)
             if self.drop_out:
                 self.dropout1 = nn.Dropout(self.drop_out_p)
-            self.conv2 = nn.Conv1d(self.n_channel, self.n_channel, kernel_size=3)
+
+            self.conv2 = nn.Conv1d(self.n_channel, self.n_channel, kernel_size=3, padding=1)
             self.bn2 = nn.BatchNorm1d(self.n_channel)
-            self.pool2 = nn.MaxPool1d(4)
+            self.conv3 = nn.Conv1d(self.n_channel, self.n_channel, kernel_size=3, padding=1)
+            self.bn3 = nn.BatchNorm1d(self.n_channel)
+            self.conv4 = nn.Conv1d(self.n_channel, self.n_channel, kernel_size=3, padding=1)
+            self.bn4 = nn.BatchNorm1d(self.n_channel)
+            self.conv5 = nn.Conv1d(self.n_channel, self.n_channel, kernel_size=3, padding=1)
+            self.bn5 = nn.BatchNorm1d(self.n_channel)
+            self.pool2 = nn.MaxPool1d(4, stride=None)
             if self.drop_out:
                 self.dropout2 = nn.Dropout(self.drop_out_p)
-            self.conv3 = nn.Conv1d(self.n_channel, 2 * self.n_channel, kernel_size=3)
-            self.bn3 = nn.BatchNorm1d(2 * self.n_channel)
+
+            self.conv6 = nn.Conv1d(self.n_channel, 2 * self.n_channel, kernel_size=3, padding=1)
+            self.bn6 = nn.BatchNorm1d(2 * self.n_channel)
+            self.conv7 = nn.Conv1d(2 * self.n_channel, 2 * self.n_channel, kernel_size=3, padding=1)
+            self.bn7 = nn.BatchNorm1d(2 * self.n_channel)
+            self.conv8 = nn.Conv1d(2 * self.n_channel, 2 * self.n_channel, kernel_size=3, padding=1)
+            self.bn8 = nn.BatchNorm1d(2 * self.n_channel)
+            self.conv9 = nn.Conv1d(2 * self.n_channel, 2 * self.n_channel, kernel_size=3, padding=1)
+            self.bn9 = nn.BatchNorm1d(2 * self.n_channel)
             if self.slice_mode():
-                self.pool3 = nn.MaxPool1d(2)
+                self.pool3 = nn.MaxPool1d(2, stride=None)
             else:
-                self.pool3 = nn.MaxPool1d(4)
+                self.pool3 = nn.MaxPool1d(4, stride=None)
             if self.drop_out:
                 self.dropout3 = nn.Dropout(self.drop_out_p)
-            self.conv4 = nn.Conv1d(2 * self.n_channel, 2 * self.n_channel, kernel_size=3)
-            self.bn4 = nn.BatchNorm1d(2 * self.n_channel)
+
+            self.conv10 = nn.Conv1d(2 * self.n_channel, 4 * self.n_channel, kernel_size=3, padding=1)
+            self.bn10 = nn.BatchNorm1d(4 * self.n_channel)
+            self.conv11 = nn.Conv1d(4 * self.n_channel, 4 * self.n_channel, kernel_size=3, padding=1)
+            self.bn11 = nn.BatchNorm1d(4 * self.n_channel)
+            self.conv12 = nn.Conv1d(4 * self.n_channel, 4 * self.n_channel, kernel_size=3, padding=1)
+            self.bn12 = nn.BatchNorm1d(4 * self.n_channel)
+            self.conv13 = nn.Conv1d(4 * self.n_channel, 4 * self.n_channel, kernel_size=3, padding=1)
+            self.bn13 = nn.BatchNorm1d(4 * self.n_channel)
             if self.slice_mode():
-                self.pool4 = nn.MaxPool1d(2)
+                self.pool4 = nn.MaxPool1d(2, stride=None)
             else:
-                self.pool4 = nn.MaxPool1d(4)
-            # if self.drop_out:
-            # self.dropout4 = nn.Dropout(self.drop_out_p)
-            if self.name == "TorchM5_music2emoCNN_criterion_version":
+                self.pool4 = nn.MaxPool1d(4, stride=None)
+            if self.drop_out:
+                self.dropout4 = nn.Dropout(self.drop_out_p)
+
+            self.conv14 = nn.Conv1d(4 * self.n_channel, 8 * self.n_channel, kernel_size=3, padding=1)
+            self.bn14 = nn.BatchNorm1d(8 * self.n_channel)
+            self.conv15 = nn.Conv1d(8 * self.n_channel, 8 * self.n_channel, kernel_size=3, padding=1)
+            self.bn15 = nn.BatchNorm1d(8 * self.n_channel)
+            self.conv16 = nn.Conv1d(8 * self.n_channel, 8 * self.n_channel, kernel_size=3, padding=1)
+            self.bn16 = nn.BatchNorm1d(8 * self.n_channel)
+            self.conv17 = nn.Conv1d(8 * self.n_channel, 8 * self.n_channel, kernel_size=3, padding=1)
+            self.bn17 = nn.BatchNorm1d(8 * self.n_channel)
+            if self.drop_out:
+                self.dropout5 = nn.Dropout(self.drop_out_p)
+
+            if self.name.__contains__('criterion_version'):
                 self.flatten = nn.Flatten()
-            self.fc1 = nn.Linear(2 * self.n_channel, self.num_classes)
+            self.fc1 = nn.Linear(8 * self.n_channel, self.num_classes)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -92,31 +125,62 @@ class TorchM18(nn.Module):
 
         x = self.conv2(x)
         x = F.relu(self.bn2(x))
+        x = self.conv3(x)
+        x = F.relu(self.bn3(x))
+        x = self.conv4(x)
+        x = F.relu(self.bn4(x))
+        x = self.conv5(x)
+        x = F.relu(self.bn5(x))
         x = self.pool2(x)
         if self.drop_out:
             x = self.dropout2(x)
 
-        x = self.conv3(x)
-        x = F.relu(self.bn3(x))
+        x = self.conv6(x)
+        x = F.relu(self.bn6(x))
+        x = self.conv7(x)
+        x = F.relu(self.bn7(x))
+        x = self.conv8(x)
+        x = F.relu(self.bn8(x))
+        x = self.conv9(x)
+        x = F.relu(self.bn9(x))
         x = self.pool3(x)
         if self.drop_out:
             x = self.dropout3(x)
 
-        x = self.conv4(x)
-        x = F.relu(self.bn4(x))
+        x = self.conv10(x)
+        x = F.relu(self.bn10(x))
+        x = self.conv11(x)
+        x = F.relu(self.bn11(x))
+        x = self.conv12(x)
+        x = F.relu(self.bn12(x))
+        x = self.conv13(x)
+        x = F.relu(self.bn13(x))
         x = self.pool4(x)
+        if self.drop_out:
+            x = self.dropout4(x)
+
+        x = self.conv14(x)
+        x = F.relu(self.bn14(x))
+        x = self.conv15(x)
+        x = F.relu(self.bn15(x))
+        x = self.conv16(x)
+        x = F.relu(self.bn16(x))
+        x = self.conv17(x)
+        x = F.relu(self.bn17(x))
+        if self.drop_out:
+            x = self.dropout5(x)
 
         ks = x.shape[-1]
         if isinstance(ks, torch.Tensor):
             if self.device.type == 'cpu':
                 ks = ks.item()
             else:
-                ks = ks.item() # stackoverflow try ks[0].item() is wrong
+                ks = ks.item()  # stackoverflow try ks[0].item() is wrong
                 print(f'ks: {ks}, type: {type(ks)}')
 
         x = F.avg_pool1d(x, kernel_size=ks)
 
-        if self.name == 'TorchM18_music2emoCNN':
+        if not self.name.__contains__('criterion_version'):
             # do as Documentation
             x = x.permute(0, 2, 1)
             x = self.fc1(x)
