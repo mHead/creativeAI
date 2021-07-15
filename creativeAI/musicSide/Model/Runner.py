@@ -129,12 +129,13 @@ class Runner(object):
 
             # score is pure logits, since I'm using CrossEntropyLoss it will do the log_softmax of the logits
             # compute outputs
-            if self.model.name == 'TorchM5_music2emoCNN':
+            if not self.model.name.contains('criterion_version'):
                 output = self.model(song_data)
                 loss = F.nll_loss(output.squeeze(), dominant_label)
             else:
                 score, flatten = self.model(song_data)
-                score = score.to('cuda')
+                if cuda.is_available() and cuda.device_count() > 0:
+                    score = score.to('cuda')
                 loss = self.criterion(score, dominant_label)
 
             # print first prediction plus every 'print_preds_every'

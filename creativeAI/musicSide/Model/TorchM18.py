@@ -116,7 +116,7 @@ class TorchM18(nn.Module):
 
         x = F.avg_pool1d(x, kernel_size=ks)
 
-        if self.name == 'TochM5_music2emoCNN':
+        if self.name == 'TorchM18_music2emoCNN':
             # do as Documentation
             x = x.permute(0, 2, 1)
             x = self.fc1(x)

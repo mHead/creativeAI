@@ -14,6 +14,8 @@ from musicSide.DatasetMusic2emotion.emoMusicPT import emoMusicPTDataset, emoMusi
 from musicSide.Model.CNN_biGRU import CNN_BiGRU
 from musicSide.Model.TorchModel import TorchModel
 from musicSide.Model.TorchM5 import TorchM5
+from musicSide.Model.TorchM11 import TorchM11
+from musicSide.Model.TorchM18 import TorchM18
 from musicSide.Model.MFCC_baseline import MFCC_baseline
 from musicSide.Model.MEL_baseline import MEL_baseline
 from musicSide.Model.Runner import Runner
@@ -101,7 +103,7 @@ if not os.path.exists(save_dir_root):
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
-__MODEL__VERSION__ = 3
+__MODEL__VERSION__ = 4
 models = ['Baseline', 'v1', 'v2', 'M5', 'M11', 'M18', 'MEL_resnet_baseline_v1', 'MEL_resnet_baseline_v2', 'MFCC_resnet_baseline']
 __MODEL__VERSION__NAME__ = models[__MODEL__VERSION__]
 
@@ -293,8 +295,16 @@ def pytorch_main():
                         "dropout_p": 0.25,
                         "slice_mode": pytorch_dataset.slice_mode
                     }
-
-                    model = TorchM5(hyperparams=hyperparams)
+                    model = None
+                    if modelVersions.get(hyperparams.get('__CONFIG__')) == 'M5':
+                        model = TorchM5(hyperparams=hyperparams)
+                    elif modelVersions.get(hyperparams.get('__CONFIG__')) == 'M11':
+                        model = TorchM11(hyperparams=hyperparams)
+                    elif modelVersions.get(hyperparams.get('__CONFIG__')) == 'M18':
+                        model = TorchM18(hyperparams=hyperparams)
+                    else:
+                        print('[raw mode] - no model selected!')
+                        sys.exit(-1)
 
                     model.save_dir = pytorch_dataset.get_save_dir()
                     model.example_0, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = \

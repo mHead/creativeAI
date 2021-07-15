@@ -152,7 +152,7 @@ class TorchM11(nn.Module):
 
         x = F.avg_pool1d(x, kernel_size=ks)
 
-        if self.name == 'TochM5_music2emoCNN':
+        if not self.name.contains('criterion_version'):
             # do as Documentation
             x = x.permute(0, 2, 1)
             x = self.fc1(x)
