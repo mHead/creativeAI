@@ -67,14 +67,19 @@ class Runner(object):
         # %%
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate,
-                                        weight_decay=self.settings.get('weight_decay'))
+                                          weight_decay=self.settings.get('weight_decay'))
 
         self.scheduler = ReduceLROnPlateau(self.optimizer, mode=self.settings.get('mode'),
                                            factor=self.settings.get('factor'),
                                            patience=self.settings.get('patience'), verbose=True)
 
-        self.criterion_weights = torch.Tensor(self.settings.get('criterion_weights'))
-        self.criterion = torch.nn.CrossEntropyLoss(weight=self.criterion_weights, size_average=None, ignore_index=-100, reduce=None,
+        if self.settings.get('criterion_weights') is None:
+            self.criterion_weights = None
+        else:
+            self.criterion_weights = torch.Tensor(self.settings.get('criterion_weights'))
+
+        self.criterion = torch.nn.CrossEntropyLoss(weight=self.criterion_weights, size_average=None,
+                                                   ignore_index=-100, reduce=None,
                                                    reduction='mean')
 
     def run(self, current_epoch, mode='train'):
@@ -141,7 +146,7 @@ class Runner(object):
             # print first prediction plus every 'print_preds_every'
             # do not print all predictions, but the ones every 50 batches
             # if mode == 'train' and batch % 10 == 0:
-                # self.print_prediction(batch, current_epoch, song_id, slice_no, filename, dominant_label, score)
+            # self.print_prediction(batch, current_epoch, song_id, slice_no, filename, dominant_label, score)
 
             pred = self.get_likely_index(score)
             epoch_acc_running_corrects += self.number_of_correct(pred, dominant_label)
@@ -182,7 +187,7 @@ class Runner(object):
         return correct / float(source.size(0))
 
     def count_parameters(self, _model):
-            return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
 
     def create_classification_report(self, preds, gt):
         preds_list = [a.squeeze().tolist() for a in preds]
@@ -311,7 +316,9 @@ class Runner(object):
         epoch_biases = {epoch: []}
 
         for i in range(len(model_children)):
-            if isinstance(model_children[i], torch.nn.Conv1d) or isinstance(model_children[i], torch.nn.BatchNorm1d) or isinstance(model_children[i], torch.nn.Linear):
+            if isinstance(model_children[i], torch.nn.Conv1d) or isinstance(model_children[i],
+                                                                            torch.nn.BatchNorm1d) or isinstance(
+                model_children[i], torch.nn.Linear):
                 epoch_weights.get(epoch).append(model_children[i].weight)
                 epoch_biases.get(epoch).append(model_children[i].bias)
 
@@ -397,7 +404,8 @@ class Runner(object):
         # if current_epoch - 1 == 0 or (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
         if (current_epoch - 1) % self.settings.get("print_preds_every") == 0:
             if not self.model.slice_mode():
-                print(f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id: {song_id}')
+                print(
+                    f'[Runner.run()] Epoch: {current_epoch} - Batch: {current_batch}\n\tPrediction for song_id: {song_id}')
                 _, preds = torch.max(score, 1)
                 print(f'\tGround Truth label: {label}\n\tPredicted:{preds}\n\n')
             else:

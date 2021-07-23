@@ -103,7 +103,7 @@ if not os.path.exists(save_dir_root):
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
-__MODEL__VERSION__ = 4
+__MODEL__VERSION__ = 5
 models = ['Baseline', 'v1', 'v2', 'M5', 'M11', 'M18', 'MEL_resnet_baseline_v1', 'MEL_resnet_baseline_v2', 'MFCC_resnet_baseline']
 __MODEL__VERSION__NAME__ = models[__MODEL__VERSION__]
 
@@ -125,7 +125,7 @@ versionsConfig = {
     'v2': {'batch_size': 4, 'n_workers': 2, 'ep': 250},
     'M5': {'batch_size': 2, 'n_workers': 2, 'ep': 250},
     'M11': {'batch_size': 2, 'n_workers': 2, 'ep': 250},
-    'M18': {'batch_size': 2, 'n_workers': 2, 'ep': 250},
+    'M18': {'batch_size': 2, 'n_workers': 2, 'ep': 350},
     'MEL_resnet_baseline_v1': {'batch_size': 32, 'n_workers': 2, 'ep': 40},
     'MEL_resnet_baseline_v2': {'batch_size': 16, 'n_workers': 2, 'ep': 40}
 }
@@ -197,9 +197,17 @@ def pytorch_main():
             pytorch_dataset = emoMusicPTDataset(slice_mode=False, env=ConfigurationDict, melspec=True)
 
         print(f'\n***** [main.py]: emoMusicPT created for the task: {TASK} *****\n')
+        print("____________________________________")
+        print(f'ConfigurationDict')
+        print("-------------------------")
+        for k in ConfigurationDict.keys():
+            print("\t{}\t\t\t{}".format(k, ConfigurationDict[k]))
+        print("____________________________________\n\n")
 
         test_frac = 0.1
-        train_indexes, test_indexes, criterion_weights = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac)
+        criterion_weight_modes = [None, 'freq', 'max']
+        criterion_weight_mode = criterion_weight_modes[0]
+        train_indexes, test_indexes, criterion_weights = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac, criterion_mode=criterion_weight_mode)
 
         # Plot splits
         # if not pytorch_dataset.slice_mode:
@@ -221,12 +229,13 @@ def pytorch_main():
                                                num_workers=int(ConfigurationDict.get('n_workers')))
         # val_DataLoader = emoMusicPTDataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=WORKERS)
         val_DataLoader = None
-        print(f'\n***** [main.py]: emoMusicPTDataLoader for train/test created *****\n\n'
+        print(f'\n***** [main.py]: emoMusicPTDataLoader for train/test created *****\n'
+              f'\n-------------\n'
               f'\ttrain_dl len: {len(train_DataLoader)}'
               f'\ttest_dl len:{len(test_DataLoader)}'
-              f'\n-------------\n'
               f'\tbatch_size: {ConfigurationDict.get("batch_size")}'
-              f'\tn_workers: {ConfigurationDict.get("n_workers")}\n')
+              f'\tn_workers: {ConfigurationDict.get("n_workers")}\n'
+              f'\n-------------\n')
 
         '''
         b = Benchmark("[main.py] pytorch_model_timer")
@@ -244,11 +253,12 @@ def pytorch_main():
             "print_preds_every": ConfigurationDict.get('ep') // 2,
             "learning_rate": 0.001,
             "stopping_rate": 1e-7,
-            "weight_decay": 0.0001,
+            "weight_decay": 0.00001,
             "momentum": 0.8,
             "model_versions": modelVersions,
             "actual_version": __MODEL__VERSION__,
-            "criterion_weights": criterion_weights      # Runner class will set weight flag of criterion
+            "criterion_weights": criterion_weights,
+            "re-weight_mode": criterion_weight_mode     # Runner class will set weight flag of criterion
         }
 
         TrainingPolicies = {
@@ -272,14 +282,23 @@ def pytorch_main():
 
         # collect
         bundle = {**TrainingSettings, **TrainingPolicies, **TrainSavingsPolicies}
-        print(TrainingSettings)
+        print("____________________________________")
+        print("TrainingSettings Dictionary")
+        print("-------------------------")
+        for k in TrainingSettings.keys():
+            print("\t{}\t\t\t{}".format(k, TrainingSettings[k]))
+        print("____________________________________\n\n")
         '''
         model, optim, runner_settings, loaded_checkpoint['metadata'] = runner.load_model(path)
         '''
         exit_code = None
         if TASK == 'raw':
-            ks_list = [110, 220, 440, 660, 880]
-            kfm_list = [8, 8*2, 8*4, 8*8, 8*16, 8*32]
+            # ks_list = [220, 440, 880, 1100]
+            ks_list = [220, 440, 880, 1100]
+            kfm_list = [8*4, 8*8, 8*8*2, 8*8*4]
+            print(f'\nStarting task: {TASK}\n'
+                  f'ks_list: {ks_list}\n'
+                  f'kfm_list: {kfm_list}\n')
             for ks in ks_list:
                 for kfm in kfm_list:
                     hyperparams = {
@@ -291,10 +310,18 @@ def pytorch_main():
                         "kernel_features_maps": kfm,
                         # n_channel in the constructor of conv1D (not the channel of audio, here is a misleading nomenclature from documentation)
                         "groups": 1,
-                        "dropout": True,
+                        "dropout": False,
                         "dropout_p": 0.25,
-                        "slice_mode": pytorch_dataset.slice_mode
+                        "slice_mode": pytorch_dataset.slice_mode,
+                        "criterion_weight_mode": criterion_weight_mode,
                     }
+                    print("____________________________________")
+                    print(f'hyperparams')
+                    print("-------------------------")
+                    for k in hyperparams.keys():
+                        print("\t{}\t\t\t{}".format(k, hyperparams[k]))
+                    print("____________________________________\n\n")
+
                     model = None
                     if modelVersions.get(hyperparams.get('__CONFIG__')) == 'M5':
                         model = TorchM5(hyperparams=hyperparams)
@@ -369,7 +396,8 @@ def generate_csv():
                 # directory is not empty, file exist
                 print(f'\n\n>>The file {save_music_emo_csv_path} already exists\n\n')
                 u.displayCSV_info(save_music_emo_csv_path)
-
+    else:
+        print(f'save_csv_path: {save_csv_path} -> csv not generated\n\n')
 
 def keras_main():
     if keras_:

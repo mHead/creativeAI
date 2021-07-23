@@ -301,7 +301,7 @@ class emoMusicPTDataset(Dataset):
         # plt.savefig('/Users/head/Desktop/ciao.jpg')
         # plt.show()
 
-    def stratified_song_level_split(self, test_fraction):
+    def stratified_song_level_split(self, test_fraction, criterion_mode):
         splitter = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=0)
         if not self.slice_mode:
             splits = splitter.split(self.wav_filenames, self.labels_song_level[:len(self.wav_filenames)])
@@ -323,8 +323,20 @@ class emoMusicPTDataset(Dataset):
         for i, v in enumerate(test_distribution):
             class_distribution[i] = train_distribution[i] + v
         assert sum(class_distribution) == len(self)
-        weights_for_criterion = np.ones(self.num_classes)
-        weights_for_criterion /= class_distribution
+
+        if criterion_mode == 'freq':
+            weights_for_criterion = np.ones(self.num_classes)
+            weights_for_criterion /= class_distribution
+        elif criterion_mode == 'max':
+            weights_for_criterion = np.ones(self.num_classes)
+            max = np.max(class_distribution)
+            weights_for_criterion *= max
+            for i, v in enumerate(weights_for_criterion):
+                weights_for_criterion[i] = v / class_distribution[i]
+
+        else:
+            print("No criterion_weights_mode specified")
+            return train_index, test_index, None
 
         return train_index, test_index, weights_for_criterion
 
@@ -444,8 +456,9 @@ class emoMusicPTDataset(Dataset):
         # plt.show()
 
     def print_info(self):
-        print(f'*** [emoMusicPTDataset.py] ***'
-              f'Creating {self.name} ****'
+        print(f'*** [emoMusicPTDataset.py] '
+              f'creating {self.name} ****\n'
+              f'\n\t--------------------'
               f'\n\trun_conf: {self._RUN_CONF}'
               f'\n\trepo root: {self._REPO_ROOT}'
               f'\n\tmusic data root: {self._MUSIC_DATA_ROOT}'
@@ -455,9 +468,9 @@ class emoMusicPTDataset(Dataset):
               f'\n\tmelspec mode: {self.is_mel_spec_mode}'
               f'\n\traw audio mode: {self.is_raw_audio_mode}'
               f'\n\t--------------------'
+              f'\n\tAudio samples len: {self.__len__()}'
               f'\n\tLabels song level len: {len(self.labels_song_level)}'
-              f'\n\tLabels slice level len: {len(self.labels_slice_level)}'
-              f'\n\tAudio samples len: {self.__len__()}')
+              f'\n\tLabels slice level len: {len(self.labels_slice_level)}')
         if verbose:
             print(f'Data_root:\n'
                   f'\tAudio: {self._AUDIO_PATH}\n'

@@ -28,6 +28,7 @@ class TorchM18(nn.Module):
         self.slice_no = None
 
         self.hyperparams = hyperparams
+        self.name = self.name + f'_weight_mode_{self.hyperparams.get("criterion_weight_mode")}'
         self.set_slice_mode(self.hyperparams['slice_mode'])
         self.num_classes = self.hyperparams.get('n_output')
         self.drop_out = self.hyperparams.get("dropout")
@@ -221,7 +222,6 @@ class TorchM18(nn.Module):
         self._save_dir = os.path.join(path, self.name)
         if not os.path.exists(self._save_dir):
             os.mkdir(self._save_dir)
-
 
     @property
     def ex0(self):
