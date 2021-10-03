@@ -15,7 +15,7 @@ class TorchM11(nn.Module):
 
     def __init__(self, verbose=False, hyperparams=None):
         super(TorchM11, self).__init__()
-        self.name = 'TorchM11_music2emoCNN_criterion_version'
+        self.name = 'TorchM11_criterion_version'
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.labelsDict = va2emo.EMOTIONS_
 
@@ -28,6 +28,7 @@ class TorchM11(nn.Module):
         self.slice_no = None
 
         self.hyperparams = hyperparams
+        self.name = self.name + f'_weight_mode_{self.hyperparams.get("criterion_weight_mode")}'
         self.set_slice_mode(self.hyperparams['slice_mode'])
         self.num_classes = self.hyperparams.get('n_output')
         self.drop_out = self.hyperparams.get("dropout")

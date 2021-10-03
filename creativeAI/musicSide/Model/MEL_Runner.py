@@ -61,7 +61,12 @@ class MEL_Runner(object):
                                            factor=self.settings.get('factor'),
                                            patience=self.settings.get('patience'), verbose=True)
 
-        self.criterion = torch.nn.CrossEntropyLoss(weight=None, size_average=None, ignore_index=-100, reduce=None,
+        if self.settings.get('criterion_weights') is None:
+            self.criterion_weights = None
+        else:
+            self.criterion_weights = torch.Tensor(self.settings.get('criterion_weights'))
+
+        self.criterion = torch.nn.CrossEntropyLoss(weight=self.criterion_weights, size_average=None, ignore_index=-100, reduce=None,
                                                    reduction='mean')
 
     def set_saves_path(self, path):

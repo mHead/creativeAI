@@ -3,8 +3,8 @@
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=6
 #SBATCH --partition=cuda
-#SBATCH --mem=6GB
-#SBATCH --time=36:00:00
+#SBATCH --mem=8GB
+#SBATCH --time=06:00:00
 #SBATCH --output=mus2emo_%j_out.txt
 #SBATCH --error=mus2emo_%j_err.txt
 
@@ -67,5 +67,6 @@ pip install seaborn==0.11.1 --user
 echo "calling ${code}, with repo_root: ${repo_root_legion}. PWD is: $PWD"
 
 
-python3 ${code} -v -r ${repo_root_legion} -raw
+#python3 ${code} -v -r ${repo_root_legion} -raw
+python3 ${code} -v -r ${repo_root_legion} -mel
 #/Users/head/PycharmProjects/creativeAI/musicSide_root_data/MusicEmo_dataset_raw_wav

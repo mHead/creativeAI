@@ -15,7 +15,7 @@ class TorchM18(nn.Module):
 
     def __init__(self, verbose=False, hyperparams=None):
         super(TorchM18, self).__init__()
-        self.name = 'TorchM18_music2emoCNN_criterion_version'
+        self.name = 'TorchM18_criterion_version'
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.labelsDict = va2emo.EMOTIONS_
 

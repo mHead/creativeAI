@@ -80,7 +80,7 @@ elif args.mfcc_coeff:
 elif args.mel_spec:
     TASK = 'mel'
 else:
-    print('No Task selected. Use -raw || -mfcc || -mel')
+    print('No Task selected. Use -raw or -mfcc or -mel')
     sys.exit(-1)
 
 assert run_config is not None
@@ -103,7 +103,27 @@ if not os.path.exists(save_dir_root):
 music_labels_csv_root = os.path.join(music_data_root, '[labels]emotion_average_dataset_csv')
 save_music_emo_csv_path = os.path.join(music_labels_csv_root, 'music_emotions_labels.csv')
 
-__MODEL__VERSION__ = 5
+
+'''
+Choose criterion_weight_mode here: 0, 1 or 2
+'''
+__MODEL__VERSION__ = 6
+__CWM__ = 0
+
+criterion_weight_modes = [None, 'freq', 'max']
+criterion_weight_mode = criterion_weight_modes[__CWM__]
+
+
+if TASK == 'mel':
+    assert(__MODEL__VERSION__ == 6 or __MODEL__VERSION__ == 7)
+elif TASK == 'raw':
+    assert(__MODEL__VERSION__ == 3 or __MODEL__VERSION__ == 4 or __MODEL__VERSION__ == 5)
+elif TASK == 'mfcc':
+    assert(__MODEL__VERSION__ == 8)
+else:
+    print(f'TASK: {TASK} is wrong')
+    exit(-1)
+
 models = ['Baseline', 'v1', 'v2', 'M5', 'M11', 'M18', 'MEL_resnet_baseline_v1', 'MEL_resnet_baseline_v2', 'MFCC_resnet_baseline']
 __MODEL__VERSION__NAME__ = models[__MODEL__VERSION__]
 
@@ -205,8 +225,7 @@ def pytorch_main():
         print("____________________________________\n\n")
 
         test_frac = 0.1
-        criterion_weight_modes = [None, 'freq', 'max']
-        criterion_weight_mode = criterion_weight_modes[0]
+
         train_indexes, test_indexes, criterion_weights = pytorch_dataset.stratified_song_level_split(test_fraction=test_frac, criterion_mode=criterion_weight_mode)
 
         # Plot splits
@@ -277,7 +296,8 @@ def pytorch_main():
             "monitor": 'val_categorical_accuracy',
             "quiet": 0,
             "verbose": 1,
-            "run_config": ConfigurationDict.get('run_config')
+            "run_config": ConfigurationDict.get('run_config'),
+            "model_name": models[TrainingSettings.get('actual_version')]
         }
 
         # collect
@@ -294,8 +314,9 @@ def pytorch_main():
         exit_code = None
         if TASK == 'raw':
             # ks_list = [220, 440, 880, 1100]
-            ks_list = [220, 440, 880, 1100]
-            kfm_list = [8*4, 8*8, 8*8*2, 8*8*4]
+            ks_list = [1760]
+            # kfm_list = [8*4, 8*8, 8*8*2, 8*8*4]
+            kfm_list = [8*8, 8*8*2, 8*8*4]
             print(f'\nStarting task: {TASK}\n'
                   f'ks_list: {ks_list}\n'
                   f'kfm_list: {kfm_list}\n')
@@ -324,10 +345,19 @@ def pytorch_main():
 
                     model = None
                     if modelVersions.get(hyperparams.get('__CONFIG__')) == 'M5':
+                        assert modelVersions.get(hyperparams.get('__CONFIG__')) == TrainSavingsPolicies.get(
+                            'model_name')
+
                         model = TorchM5(hyperparams=hyperparams)
                     elif modelVersions.get(hyperparams.get('__CONFIG__')) == 'M11':
+                        assert modelVersions.get(hyperparams.get('__CONFIG__')) == TrainSavingsPolicies.get(
+                            'model_name')
+
                         model = TorchM11(hyperparams=hyperparams)
                     elif modelVersions.get(hyperparams.get('__CONFIG__')) == 'M18':
+                        assert modelVersions.get(hyperparams.get('__CONFIG__')) == TrainSavingsPolicies.get(
+                            'model_name')
+
                         model = TorchM18(hyperparams=hyperparams)
                     else:
                         print('[raw mode] - no model selected!')
@@ -352,15 +382,25 @@ def pytorch_main():
             model.input_shape = model.example_0.shape
             '''
         elif TASK == 'mel':
-            dropout_list = [0.1, 0.15, 0.2, 0.25]
+            dropout_list = [0.20, 0.25, 0.5]
             for d in dropout_list:
                 hyperparams = {
                     "__CONFIG__": __MODEL__VERSION__,
                     "n_output": pytorch_dataset.num_classes,
                     "dropout": True,
                     "dropout_p": d,
+                    "criterion_weight_mode": criterion_weight_mode
                 }
-                model = MEL_baseline(verbose=False, hyperparams=hyperparams)
+                model = None
+                if modelVersions.get(hyperparams.get('__CONFIG__')) == 'MEL_resnet_baseline_v1':
+                    assert modelVersions.get(hyperparams.get('__CONFIG__')) == TrainSavingsPolicies.get('model_name')
+                    model = MEL_baseline(verbose=False, hyperparams=hyperparams)
+                elif modelVersions.get(hyperparams.get('__CONFIG__')) == 'MEL_resnet_baseline_v2':
+                    assert modelVersions.get(hyperparams.get('__CONFIG__')) == TrainSavingsPolicies.get('model_name')
+                    model = MEL_baseline(verbose=False, hyperparams=hyperparams)
+                else:
+                    print('[mel mode] - no model selected!')
+                    sys.exit(-1)
                 model.save_dir = pytorch_dataset.get_save_dir()
                 model.ex0_mel, model.ex0_songid, model.ex0_filename, model.ex0_label, model.slice_no = train_DataLoader.dataset[0]
                 model.input_shape = model.ex0_mel.shape

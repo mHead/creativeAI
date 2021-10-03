@@ -15,8 +15,9 @@ class MEL_baseline:
 
     def __init__(self, verbose=False, hyperparams=None):
         self.model = models.resnet18(pretrained=True)
-        self.name = 'MEL-spectrogram-baseline'
+        self.name = 'MEL-spectrogram-resnet18'
         self.hyperparams = hyperparams
+        self.name = self.name + f'_weight_mode_{self.hyperparams.get("criterion_weight_mode")}'
         self.device = torch.cuda.current_device() if torch.cuda.is_available() else torch.device('cpu')
         self.labelsDict = va2emo.EMOTIONS_
 
